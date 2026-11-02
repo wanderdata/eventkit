@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Webinar Series Dashboard</title>
+<style>
+:root{
+  color-scheme:light;
+  --page:#f9f9f7;--surface:#fcfcfb;--ink:#0b0b0b;--ink2:#52514e;--muted:#6f6d68;
+  --grid:#e1e0d9;--axis:#c3c2b7;--ring:rgba(11,11,11,.10);
+  --s1:#2a78d6;--s2:#eb6834;--accent:#2a78d6;--warnbg:#fff6e0;--warnink:#6b4a00;
+}
+@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])){
+  color-scheme:dark;--page:#0d0d0d;--surface:#1a1a19;--ink:#f0efec;--ink2:#c3c2b7;--muted:#9a988f;
+  --grid:#2c2c2a;--axis:#383835;--ring:rgba(255,255,255,.10);--s1:#3987e5;--s2:#d95926;--accent:#3987e5;
+  --warnbg:#2b2310;--warnink:#f2d48a;}}
+:root[data-theme="dark"]{color-scheme:dark;--page:#0d0d0d;--surface:#1a1a19;--ink:#f0efec;--ink2:#c3c2b7;--muted:#9a988f;
+  --grid:#2c2c2a;--axis:#383835;--ring:rgba(255,255,255,.10);--s1:#3987e5;--s2:#d95926;--accent:#3987e5;--warnbg:#2b2310;--warnink:#f2d48a;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-variant-numeric:tabular-nums}
+header{padding:20px 16px 0;max-width:1200px;margin:0 auto;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between}
+h1{font-size:22px;margin:0;font-weight:650;letter-spacing:-.01em}
+.sub{color:var(--ink2);font-size:14px;margin-top:2px}
+.lang button,.tabs button{font:inherit;border:1px solid var(--ring);background:var(--surface);color:var(--ink2);padding:6px 12px;border-radius:999px;cursor:pointer}
+.lang button[aria-pressed="true"],.tabs button[aria-selected="true"]{background:var(--ink);color:var(--page);border-color:var(--ink)}
+.tabs{max-width:1200px;margin:16px auto 0;padding:0 16px;display:flex;gap:8px;overflow-x:auto;scrollbar-width:thin}
+.tabs button{white-space:nowrap}
+main{max-width:1200px;margin:0 auto;padding:16px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--ring);border-radius:12px;padding:12px 14px}
+.kpi .v{font-size:26px;font-weight:650;letter-spacing:-.02em}
+.kpi .l{color:var(--ink2);font-size:13px}
+.kpi .n{color:var(--muted);font-size:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--ring);border-radius:12px;padding:16px;min-width:0}
+.card h2{font-size:15px;margin:0 0 2px;font-weight:620}
+.card .hint{color:var(--muted);font-size:12.5px;margin:0 0 10px}
+.legend{display:flex;gap:14px;font-size:12.5px;color:var(--ink2);margin-bottom:6px;flex-wrap:wrap}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+svg{display:block;width:100%;overflow:visible}
+svg text{fill:var(--muted);font-size:11.5px}
+svg .lbl{fill:var(--ink2)}
+svg .val{fill:var(--ink);font-weight:600}
+.tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--page);padding:6px 9px;border-radius:8px;font-size:12.5px;line-height:1.35;opacity:0;transition:opacity .08s;z-index:10;max-width:260px}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{text-align:right;padding:7px 8px;border-bottom:1px solid var(--grid);white-space:nowrap}
+th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left}
+th{color:var(--ink2);font-weight:600;font-size:12.5px}
+td.t{white-space:normal;min-width:180px}
+.scroll{overflow-x:auto}
+.ev-head{margin:0 0 14px}
+.ev-head h2{font-size:20px;margin:0}
+.ev-head .meta{color:var(--ink2)}
+.article{max-width:720px}
+.article h1{font-size:20px;line-height:1.3;margin:0 0 10px}
+.article p{margin:0 0 12px}
+.article a{color:var(--accent)}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 14px}
+.btn{display:inline-block;border:1px solid var(--ring);border-radius:8px;padding:6px 12px;color:var(--ink);text-decoration:none;background:var(--page);font-size:13.5px;cursor:pointer}
+.note{background:var(--warnbg);color:var(--warnink);border-radius:10px;padding:10px 12px;font-size:13px;margin:0 0 16px}
+details{margin-top:8px}
+summary{cursor:pointer;color:var(--ink2);font-size:13.5px}
+.review{font-size:13px;white-space:pre-wrap;color:var(--ink2);background:var(--page);padding:10px;border-radius:8px}
+.empty{color:var(--muted);font-size:13px}
+@media (max-width:520px){.kpi .v{font-size:22px}h1{font-size:19px}}
+</style>
+</head>
+<body>
+<header>
+  <div><h1 id="title"></h1><div class="sub" id="subtitle"></div></div>
+  <div class="lang" role="group" aria-label="Language">
+    <button data-l="es">ES</button><button data-l="en">EN</button>
+  </div>
+</header>
+<nav class="tabs" id="tabs" role="tablist"></nav>
+<main id="main"></main>
+<div class="tip" id="tip" role="tooltip"></div>
+<script>
+const DATA = /*__DATA__*/null;
+const T = {
+ es:{series:"Toda la serie",events:"Sesiones",unique:"Personas únicas",uniqueN:"asistentes distintos en la serie",regs:"Inscripciones",conv:"Tasa de asistencia",convN:"inscritos que se conectaron",twoplus:"Asistieron a 2+ sesiones",women:"Mujeres",lac:"América Latina y el Caribe",participants:"Participantes",participantsN:"conexiones únicas, incl. organización",attendees:"Público",peak:"Pico simultáneo",median:"Minutos conectados (mediana)",stayed:"Se quedaron más de la mitad",countries:"Países",questions:"Preguntas en el chat",regVsPart:"Inscritos y participantes por sesión",regVsPartH:"Personas únicas por sesión",newRet:"Público nuevo y recurrente",newRetH:"Recurrente = asistió a una sesión anterior de la serie",new:"Nuevo",ret:"Recurrente",tableT:"Resumen por sesión",date:"Fecha",session:"Sesión",speaker:"Ponente",over:"Personas conectadas durante la sesión",overH:"Público (sin organización ni panel), cada 2 minutos",byCountry:"Participantes por país",byCountryH:"Según el formulario de inscripción; % sobre participantes con país conocido",bySector:"Participantes por sector",bySectorH:"Clasificado a partir de la organización y el correo; editable en config/org_sectors.csv",byGender:"Participantes por género",funnel:"Inscritos y asistentes por país",funnelH:"Los 12 países con más inscripciones",registered:"Inscritos",attended:"Asistieron",summary:"Nota informativa",download:"Descargar Word",review:"Revisión automática (citas y nombres)",noSummary:"Aún no hay nota para esta sesión.",F:"Mujeres",M:"Hombres",O:"Otro / prefiere no decir",others:"Otros",usNote:n=>`Se descartaron ${n} respuestas «Estados Unidos» que Webex preselecciona en el formulario (país desconocido salvo que el correo indique otro país).`,inferredNote:n=>`País inferido desde el dominio del correo para ${n} personas.`,of:"de",min:"min",people:"personas"},
+ en:{series:"Whole series",events:"Sessions",unique:"Unique people",uniqueN:"distinct attendees across the series",regs:"Registrations",conv:"Show-up rate",convN:"registrants who connected",twoplus:"Attended 2+ sessions",women:"Women",lac:"Latin America and the Caribbean",participants:"Participants",participantsN:"unique connections, incl. organizers",attendees:"Audience",peak:"Peak concurrent",median:"Minutes connected (median)",stayed:"Stayed more than half",countries:"Countries",questions:"Questions in chat",regVsPart:"Registrants and participants per session",regVsPartH:"Unique people per session",newRet:"New and returning audience",newRetH:"Returning = attended an earlier session of the series",new:"New",ret:"Returning",tableT:"Summary by session",date:"Date",session:"Session",speaker:"Speaker",over:"People connected during the session",overH:"Audience (excluding organizers and panel), every 2 minutes",byCountry:"Participants by country",byCountryH:"From the registration form; % of participants with known country",bySector:"Participants by sector",bySectorH:"Classified from organization and e-mail; editable in config/org_sectors.csv",byGender:"Participants by gender",funnel:"Registrants and attendees by country",funnelH:"Top 12 countries by registrations",registered:"Registered",attended:"Attended",summary:"News article",download:"Download Word",review:"Automatic review (quotes and names)",noSummary:"No article yet for this session.",F:"Women",M:"Men",O:"Other / prefer not to say",others:"Others",usNote:n=>`${n} “United States” answers pre-selected by the Webex form were discarded (country unknown unless the e-mail domain shows another country).`,inferredNote:n=>`Country inferred from the e-mail domain for ${n} people.`,of:"of",min:"min",people:"people"}
+};
+let lang = (()=>{try{return localStorage.getItem("ek-lang")||"es"}catch(e){return "es"}})();
+let tab = (()=>{try{return localStorage.getItem("ek-tab")||"series"}catch(e){return "series"}})();
+const $ = (s,el=document)=>el.querySelector(s);
+const h = (tag,attrs={},...kids)=>{const e=document.createElement(tag);for(const[k,v]of Object.entries(attrs)){if(k==="class")e.className=v;else if(k==="text")e.textContent=v;else e.setAttribute(k,v)}for(const k of kids)if(k!=null)e.append(k);return e};
+const NS="http://www.w3.org/2000/svg";
+const s = (tag,attrs={})=>{const e=document.createElementNS(NS,tag);for(const[k,v]of Object.entries(attrs))e.setAttribute(k,v);return e};
+const fmt = (v,d=0)=>v==null?"–":Number(v).toLocaleString(lang==="es"?"es-CL":"en-GB",{maximumFractionDigits:d,minimumFractionDigits:d});
+const pct = v=>v==null?"–":fmt(v,0)+"%";
+const t = k=>T[lang][k];
+const evTitle = e=>(lang==="es"?e.title_es:e.title_en)||e.webinar_name;
+const dateStr = d=>d?new Date(d+"T12:00:00").toLocaleDateString(lang==="es"?"es-CL":"en-GB",{day:"numeric",month:"short",year:"numeric"}):"";
+const cname = k=>lang==="en"?(DATA.country_en[k]||k):k;
+const secName = k=>(DATA.sectors[k]||{})[lang]||k;
+const tip = $("#tip");
+function showTip(ev,lines){tip.replaceChildren(...lines.map((l,i)=>h("div",i===0?{style:"font-weight:600"}:{},l)));tip.style.opacity=1;const x=Math.min(ev.clientX+14,innerWidth-tip.offsetWidth-8);tip.style.left=x+"px";tip.style.top=(ev.clientY+14)+"px"}
+function hideTip(){tip.style.opacity=0}
+
+/* ---------- charts ---------- */
+function legend(items){return h("div",{class:"legend"},...items.map(([c,l])=>h("span",{},h("i",{style:`background:${c}`}),l)))}
+function hbars(rows,{series=[{key:"n",color:"var(--s1)",label:""}],valueFmt=v=>fmt(v),max=null}={}){
+  // rows: [{label, n|..., tip:[...]}]; horizontal bars, labels left, values right
+  const wrap=h("div");const draw=()=>{
+    const W=Math.max(280,wrap.clientWidth||460), lw=Math.min(230,W*.4), vw=58, bh=series.length>1?9:14, gap=series.length>1?2:0, rowH=series.length*bh+(series.length-1)*gap+12;
+    const H=rows.length*rowH+4, mx=max||Math.max(1,...rows.flatMap(r=>series.map(sr=>r[sr.key]||0)));
+    const svg=s("svg",{viewBox:`0 0 ${W} ${H}`,height:H,role:"img"});
+    rows.forEach((r,i)=>{const y=i*rowH+6;
+      const lab=s("text",{x:lw-8,y:y+(rowH-12)/2+4,"text-anchor":"end",class:"lbl"});const mc=Math.floor((lw-10)/6.4);lab.textContent=r.label.length>mc?r.label.slice(0,mc-1)+"…":r.label;svg.append(lab);
+      series.forEach((sr,j)=>{const v=r[sr.key]||0,w=Math.max(v>0?2:0,(W-lw-vw)*v/mx),yy=y+j*(bh+gap);
+        svg.append(s("rect",{x:lw,y:yy,width:w,height:bh,rx:Math.min(4,w/2),fill:sr.color}));
+        const vt=s("text",{x:lw+w+6,y:yy+bh/2+4,class:j===0?"val":""});vt.textContent=valueFmt(v,r,sr);svg.append(vt);});
+      const hit=s("rect",{x:0,y:i*rowH,width:W,height:rowH,fill:"transparent",tabindex:0});
+      const lines=r.tip||[r.label,...series.map(sr=>(sr.label?sr.label+": ":"")+valueFmt(r[sr.key]||0,r,sr))];
+      hit.addEventListener("pointermove",e=>showTip(e,lines));hit.addEventListener("pointerleave",hideTip);
+      hit.addEventListener("focus",e=>{const b=hit.getBoundingClientRect();showTip({clientX:b.left+lw,clientY:b.top},lines)});hit.addEventListener("blur",hideTip);
+      svg.append(hit);});
+    wrap.replaceChildren(svg)};
+  new ResizeObserver(draw).observe(wrap);return wrap}
+
+function vbars(cats,series,{stacked=false}={}){
+  const wrap=h("div");const draw=()=>{
+    const W=Math.max(280,wrap.clientWidth||460),H=230,pl=40,pb=40,pt=18,iw=W-pl-8,ih=H-pb-pt;
+    const tot=cats.map((_,i)=>stacked?series.reduce((a,sr)=>a+(sr.values[i]||0),0):Math.max(...series.map(sr=>sr.values[i]||0)));
+    const mx=niceMax(Math.max(1,...tot));const svg=s("svg",{viewBox:`0 0 ${W} ${H}`,height:H,role:"img"});
+    for(const v of ticks(mx)){const y=pt+ih-ih*v/mx;svg.append(s("line",{x1:pl,x2:W-8,y1:y,y2:y,stroke:v?"var(--grid)":"var(--axis)"}));const tx=s("text",{x:pl-6,y:y+4,"text-anchor":"end"});tx.textContent=fmt(v);svg.append(tx)}
+    const bw=iw/cats.length, inner=Math.min(stacked?56:36,(bw*.7)/(stacked?1:series.length));
+    cats.forEach((c,i)=>{const cx=pl+bw*i+bw/2;let acc=0;
+      series.forEach((sr,j)=>{const v=sr.values[i]||0,hgt=ih*v/mx;let x,y;
+        if(stacked){x=cx-inner/2;y=pt+ih-ih*(acc+v)/mx;acc+=v}else{x=cx-(inner*series.length+2*(series.length-1))/2+j*(inner+2);y=pt+ih-hgt}
+        svg.append(s("rect",{x,y:y+(stacked&&j?1:0),width:inner,height:Math.max(0,hgt-(stacked&&j?2:0)),rx:3,fill:sr.color}));
+        if(!stacked&&v){const vt=s("text",{x:x+inner/2,y:y-5,"text-anchor":"middle",class:"val"});vt.textContent=fmt(v);svg.append(vt)}});
+      if(stacked){const vt=s("text",{x:cx,y:pt+ih-ih*acc/mx-5,"text-anchor":"middle",class:"val"});vt.textContent=fmt(acc);svg.append(vt)}
+      const lb=s("text",{x:cx,y:H-pb+16,"text-anchor":"middle",class:"lbl"});lb.textContent=c.label;svg.append(lb);
+      const lb2=s("text",{x:cx,y:H-pb+30,"text-anchor":"middle"});lb2.textContent=c.sub||"";svg.append(lb2);
+      const hit=s("rect",{x:pl+bw*i,y:pt,width:bw,height:ih,fill:"transparent"});
+      const lines=[c.tipTitle||c.label,...series.map(sr=>`${sr.label}: ${fmt(sr.values[i]||0)}`)];
+      hit.addEventListener("pointermove",e=>showTip(e,lines));hit.addEventListener("pointerleave",hideTip);svg.append(hit)});
+    wrap.replaceChildren(svg)};
+  new ResizeObserver(draw).observe(wrap);return wrap}
+
+function niceStep(v){const p=Math.pow(10,Math.floor(Math.log10(v)));for(const m of [1,2,2.5,5,10])if(m*p>=v)return m*p;return v}
+function niceMax(v){const st=niceStep(v/4);return Math.ceil(v/st)*st}
+function ticks(mx){const st=niceStep(mx/4);const out=[];for(let v=0;v<=mx+1e-9;v+=st)out.push(v);return out}
+
+function line(points){
+  const wrap=h("div");const draw=()=>{
+    const W=Math.max(280,wrap.clientWidth||460),H=220,pl=36,pb=26,pt=12,iw=W-pl-10,ih=H-pb-pt;
+    const mx=niceMax(Math.max(1,...points.map(p=>p.n)));const svg=s("svg",{viewBox:`0 0 ${W} ${H}`,height:H,role:"img"});
+    for(const v of ticks(mx)){const y=pt+ih-ih*v/mx;svg.append(s("line",{x1:pl,x2:W-10,y1:y,y2:y,stroke:v?"var(--grid)":"var(--axis)"}));const tx=s("text",{x:pl-6,y:y+4,"text-anchor":"end"});tx.textContent=fmt(v);svg.append(tx)}
+    const X=i=>pl+iw*i/Math.max(1,points.length-1),Y=v=>pt+ih-ih*v/mx;
+    const step=Math.ceil(points.length/Math.max(2,Math.floor(iw/70)));
+    points.forEach((p,i)=>{if(i%step===0){const tx=s("text",{x:X(i),y:H-8,"text-anchor":"middle"});tx.textContent=p.t;svg.append(tx)}});
+    const d=points.map((p,i)=>`${i?"L":"M"}${X(i).toFixed(1)},${Y(p.n).toFixed(1)}`).join("");
+    svg.append(s("path",{d:d+`L${X(points.length-1)},${Y(0)}L${X(0)},${Y(0)}Z`,fill:"var(--s1)",opacity:.12}));
+    svg.append(s("path",{d,fill:"none",stroke:"var(--s1)","stroke-width":2,"stroke-linejoin":"round"}));
+    const pk=points.reduce((a,p,i)=>p.n>points[a].n?i:a,0);
+    svg.append(s("circle",{cx:X(pk),cy:Y(points[pk].n),r:4,fill:"var(--s1)",stroke:"var(--surface)","stroke-width":2}));
+    const pl2=s("text",{x:X(pk),y:Y(points[pk].n)-9,"text-anchor":"middle",class:"val"});pl2.textContent=fmt(points[pk].n);svg.append(pl2);
+    const cross=s("line",{y1:pt,y2:pt+ih,stroke:"var(--axis)",opacity:0}),dot=s("circle",{r:4,fill:"var(--s1)",stroke:"var(--surface)","stroke-width":2,opacity:0});svg.append(cross,dot);
+    const hit=s("rect",{x:pl,y:pt,width:iw,height:ih,fill:"transparent"});
+    hit.addEventListener("pointermove",e=>{const b=svg.getBoundingClientRect(),x=(e.clientX-b.left)*W/b.width;const i=Math.max(0,Math.min(points.length-1,Math.round((x-pl)/iw*(points.length-1))));
+      cross.setAttribute("x1",X(i));cross.setAttribute("x2",X(i));cross.setAttribute("opacity",1);dot.setAttribute("cx",X(i));dot.setAttribute("cy",Y(points[i].n));dot.setAttribute("opacity",1);
+      showTip(e,[points[i].t,`${fmt(points[i].n)} ${t("people")}`])});
+    hit.addEventListener("pointerleave",()=>{hideTip();cross.setAttribute("opacity",0);dot.setAttribute("opacity",0)});svg.append(hit);
+    wrap.replaceChildren(svg)};
+  new ResizeObserver(draw).observe(wrap);return wrap}
+
+/* ---------- markdown ---------- */
+function md(src){
+  const esc=x=>x.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const inline=x=>esc(x).replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>').replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>").replace(/\*([^*]+)\*/g,"<em>$1</em>");
+  return src.replace(/<!--[\s\S]*?-->\n?/g,"").split(/\n{2,}/).map(b=>b.trim()).filter(Boolean).map(b=>b.startsWith("# ")?`<h1>${inline(b.slice(2))}</h1>`:`<p>${inline(b.replace(/\n/g," "))}</p>`).join("");
+}
+
+/* ---------- views ---------- */
+const kpi=(v,l,n)=>h("div",{class:"kpi"},h("div",{class:"v",text:v}),h("div",{class:"l",text:l}),n?h("div",{class:"n",text:n}):null);
+const card=(title,hint,...body)=>h("section",{class:"card"},h("h2",{text:title}),hint?h("p",{class:"hint",text:hint}):null,...body);
+
+function seriesView(){
+  const E=DATA.events,S=DATA.series||{};
+  const regs=E.reduce((a,e)=>a+(e.registrations||0),0);
+  const conv=E.filter(e=>e.conversion_pct!=null);
+  const avg=(arr,f)=>arr.length?arr.reduce((a,e)=>a+f(e),0)/arr.length:null;
+  const k=h("div",{class:"kpis"},
+    kpi(fmt(E.length),t("events")),
+    kpi(fmt(S.unique_attendees),t("unique"),t("uniqueN")),
+    kpi(fmt(regs),t("regs")),
+    kpi(pct(avg(conv,e=>e.conversion_pct)),t("conv"),t("convN")),
+    kpi(fmt(S.attended_2plus),t("twoplus")),
+    kpi(pct(avg(E.filter(e=>e.demographics.women_pct!=null),e=>e.demographics.women_pct)),t("women")),
+    kpi(pct(avg(E.filter(e=>e.demographics.lac_pct!=null),e=>e.demographics.lac_pct)),t("lac")));
+  const cats=E.map((e,i)=>({label:`#${i+1}`,sub:dateStr(e.date),tipTitle:evTitle(e)}));
+  const c1=card(t("regVsPart"),t("regVsPartH"),legend([["var(--s1)",t("registered")],["var(--s2)",t("participants")]]),
+    vbars(cats,[{label:t("registered"),color:"var(--s1)",values:E.map(e=>e.registrations||0)},{label:t("participants"),color:"var(--s2)",values:E.map(e=>e.participants_total)}]));
+  const c2=card(t("newRet"),t("newRetH"),legend([["var(--s1)",t("new")],["var(--s2)",t("ret")]]),
+    vbars(cats,[{label:t("new"),color:"var(--s1)",values:E.map(e=>e.series.new||0)},{label:t("ret"),color:"var(--s2)",values:E.map(e=>e.series.returning||0)}],{stacked:true}));
+  const cols=[["#",(e,i)=>i+1],[t("session"),e=>evTitle(e)],[t("date"),e=>dateStr(e.date)],[t("registered"),e=>fmt(e.registrations)],[t("participants"),e=>fmt(e.participants_total)],[t("conv"),e=>pct(e.conversion_pct)],[t("peak"),e=>fmt(e.peak_concurrent)],[t("median"),e=>fmt(e.minutes_median)],[t("countries"),e=>fmt(e.demographics.countries_n)],[t("women"),e=>pct(e.demographics.women_pct)],[t("lac"),e=>pct(e.demographics.lac_pct)],[t("ret"),e=>pct(e.series.returning_pct)],[t("questions"),e=>fmt(e.chat.questions)]];
+  const tbl=h("table",{},h("thead",{},h("tr",{},...cols.map(c=>h("th",{text:c[0]})))),h("tbody",{},...E.map((e,i)=>h("tr",{},...cols.map((c,j)=>h("td",j===1?{class:"t"}:{},String(c[1](e,i))))))));
+  return [k,h("div",{class:"grid"},c1,c2),h("div",{style:"height:16px"}),card(t("tableT"),null,h("div",{class:"scroll"},tbl))];
+}
+
+function eventView(e){
+  const d=e.demographics;
+  const head=h("div",{class:"ev-head"},h("h2",{text:evTitle(e)}),h("div",{class:"meta",text:[e.speaker,dateStr(e.date)].filter(Boolean).join(" · ")}));
+  const notes=[];const dn=e.data_notes||{};
+  if(dn.us_default_discarded)notes.push(t("usNote")(dn.us_default_discarded));
+  if(dn.country_inferred_from_email)notes.push(t("inferredNote")(dn.country_inferred_from_email));
+  const k=h("div",{class:"kpis"},
+    kpi(fmt(e.participants_total),t("participants"),t("participantsN")),
+    kpi(fmt(e.registrations),t("registered")),
+    kpi(pct(e.conversion_pct),t("conv"),t("convN")),
+    kpi(fmt(e.peak_concurrent),t("peak")),
+    kpi(fmt(e.minutes_median)+" "+t("min"),t("median"),e.duration_min?`${t("of")} ${e.duration_min} ${t("min")}`:null),
+    kpi(pct(e.stayed_half_pct),t("stayed")),
+    kpi(fmt(d.countries_n),t("countries")),
+    kpi(pct(d.women_pct),t("women")),
+    kpi(fmt(e.chat.questions),t("questions")));
+  const top=d.countries.slice(0,10),rest=d.countries.slice(10);
+  const crow=top.map(c=>({label:cname(c.key),n:c.pct,tip:[cname(c.key),`${fmt(c.n)} ${t("people")} · ${fmt(c.pct,1)}%`]}));
+  if(rest.length){const n=rest.reduce((a,c)=>a+c.n,0),p=rest.reduce((a,c)=>a+c.pct,0);crow.push({label:`${t("others")} (${rest.length})`,n:p,tip:[`${t("others")}: ${rest.map(c=>cname(c.key)).join(", ")}`,`${fmt(n)} ${t("people")} · ${fmt(p,1)}%`]})}
+  const pf=v=>fmt(v,0)+"%";
+  const charts=[
+    card(t("over"),t("overH"),e.timeline.length?line(e.timeline):h("p",{class:"empty",text:"–"})),
+    card(t("byCountry"),t("byCountryH"),hbars(crow,{valueFmt:pf})),
+    card(t("bySector"),t("bySectorH"),hbars(d.sectors.map(x=>({label:secName(x.key),n:x.pct,tip:[secName(x.key),`${fmt(x.n)} ${t("people")} · ${fmt(x.pct,1)}%`]})),{valueFmt:pf})),
+    card(t("byGender"),null,hbars(d.gender.map(x=>({label:t(x.key),n:x.pct,tip:[t(x.key),`${fmt(x.n)} ${t("people")} · ${fmt(x.pct,1)}%`]})),{valueFmt:pf,max:100})),
+  ];
+  if(e.country_funnel&&e.country_funnel.length){
+    charts.push(card(t("funnel"),t("funnelH"),legend([["var(--s1)",t("registered")],["var(--s2)",t("attended")]]),
+      hbars(e.country_funnel.slice(0,12).map(c=>({label:cname(c.key),reg:c.reg,att:c.att,tip:[cname(c.key),`${t("registered")}: ${fmt(c.reg)}`,`${t("attended")}: ${fmt(c.att)} (${pct(100*c.att/c.reg)})`]})),
+        {series:[{key:"reg",color:"var(--s1)",label:t("registered")},{key:"att",color:"var(--s2)",label:t("attended")}]})));
+  }
+  const txt=e.summary[lang]||e.summary.es;
+  const art=h("div",{class:"article"});
+  if(txt){art.innerHTML=md(txt)}else art.append(h("p",{class:"empty",text:t("noSummary")}));
+  const btns=h("div",{class:"btns"},...Object.entries(e.docx||{}).map(([l,f])=>h("a",{class:"btn",href:f,download:""},`${t("download")} (${l.toUpperCase()})`)));
+  const rev=e.review?h("details",{},h("summary",{text:t("review")}),h("div",{class:"review",text:e.review})):null;
+  charts.push(h("section",{class:"card",style:"grid-column:1/-1"},h("h2",{text:t("summary")}),btns,art,rev));
+  return [head,...notes.map(n=>h("div",{class:"note",text:n})),k,h("div",{class:"grid"},...charts)];
+}
+
+function render(){
+  document.documentElement.lang=lang;
+  const C=DATA.config||{};
+  $("#title").textContent=(lang==="es"?C.dashboard_title_es:C.dashboard_title_en)||"Webinars";
+  $("#subtitle").textContent=(lang==="es"?C.series_name_es:C.series_name_en)||"";
+  document.querySelectorAll(".lang button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.l===lang));
+  const tabs=$("#tabs");tabs.replaceChildren();
+  const ids=["series",...DATA.events.map(e=>e.id)];if(!ids.includes(tab))tab="series";
+  ids.forEach((id,i)=>{const e=DATA.events.find(x=>x.id===id);
+    const b=h("button",{role:"tab","aria-selected":id===tab},id==="series"?t("series"):`#${i} · ${dateStr(e.date)}`);
+    b.title=e?evTitle(e):"";b.onclick=()=>{tab=id;try{localStorage.setItem("ek-tab",id)}catch(_){}render()};tabs.append(b)});
+  const m=$("#main");m.replaceChildren(...(tab==="series"?seriesView():eventView(DATA.events.find(x=>x.id===tab))));
+}
+document.querySelectorAll(".lang button").forEach(b=>b.onclick=()=>{lang=b.dataset.l;try{localStorage.setItem("ek-lang",lang)}catch(_){}render()});
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+# This repository holds CODE ONLY. Never commit participant data here.
+events/
+data/
+inbox/
+public/
+*.csv
+*.xlsx
+!eventkit/defaults/*.csv
+.eventkit_salt
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.venv/
+.pytest_cache/
+.DS_Store

@@ -1,0 +1,39 @@
+# eventkit pipeline for a webinar series (private GitLab project).
+# Runs on every push to the default branch (uploads to inbox/, edited summaries, config changes)
+# and can be started by hand: Build > Pipelines > Run pipeline.
+#
+# CI/CD variables (Settings > CI/CD > Variables; Masked + Protected):
+#   ANTHROPIC_API_KEY   Claude API key (writes the articles, classifies organizations)
+#   EVENTKIT_SALT       long random string to anonymise e-mails. NEVER change it.
+#   GITLAB_PUSH_TOKEN   project access token, role Developer, scope write_repository
+# Optional:
+#   EVENTKIT_MODEL      Claude model id (default claude-opus-5-5)
+
+variables:
+  EVENTKIT_VERSION: "v0.1.0"     # tag of github.com/wanderdata/eventkit to use
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+pages:
+  image: python:3.12
+  stage: deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_MESSAGE !~ /\[eventkit\]/'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+  cache:
+    key: pip
+    paths: [.cache/pip]
+  script:
+    - pip install -q "eventkit @ git+https://github.com/wanderdata/eventkit@${EVENTKIT_VERSION}"
+    - eventkit process      # new uploads in inbox/
+    - eventkit rebuild      # recompute all events (picks up config edits and edited summaries)
+    - |
+      git config user.name "eventkit bot"
+      git config user.email "eventkit-bot@noreply.${CI_SERVER_HOST}"
+      git add -A events data config inbox
+      if ! git diff --cached --quiet; then
+        git commit -m "[eventkit] update events and dashboard"
+        git push "https://oauth2:${GITLAB_PUSH_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" HEAD:${CI_COMMIT_BRANCH}
+      fi
+  artifacts:
+    paths: [public]
+    expire_in: 30 days

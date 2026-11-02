@@ -1,0 +1,5 @@
+public/
+.eventkit_salt
+__pycache__/
+*.pyc
+.DS_Store

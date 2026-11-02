@@ -1,0 +1,7 @@
+# Series settings used in the articles and on the dashboard.
+series_name_es: "Nombre de la serie"
+series_name_en: "Series name"
+organizers_es: "CEPAL"
+organizers_en: "ECLAC"
+dashboard_title_es: "Serie de webinars"
+dashboard_title_en: "Webinar series"

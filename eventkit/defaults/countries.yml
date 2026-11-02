@@ -1,0 +1,69 @@
+# Canonical country names (Spanish) -> English name, ISO code, LAC flag, aliases.
+# Matching is case/accent-insensitive. Add aliases here when the dashboard
+# shows a value under "Sin clasificar / Unclassified".
+# lac: true = Latin America and the Caribbean (ECLAC member/associate countries in the region)
+
+Argentina: {en: Argentina, iso: AR, lac: true, aliases: [arg]}
+Bahamas: {en: Bahamas, iso: BS, lac: true, aliases: [the bahamas]}
+Barbados: {en: Barbados, iso: BB, lac: true}
+Belice: {en: Belize, iso: BZ, lac: true, aliases: [belize]}
+Bolivia: {en: Bolivia, iso: BO, lac: true, aliases: [estado plurinacional de bolivia, bolivia plurinational state of]}
+Brasil: {en: Brazil, iso: BR, lac: true, aliases: [brazil, bresil]}
+Chile: {en: Chile, iso: CL, lac: true}
+Colombia: {en: Colombia, iso: CO, lac: true}
+Costa Rica: {en: Costa Rica, iso: CR, lac: true, aliases: [cr]}
+Cuba: {en: Cuba, iso: CU, lac: true}
+Ecuador: {en: Ecuador, iso: EC, lac: true}
+El Salvador: {en: El Salvador, iso: SV, lac: true, aliases: [salvador]}
+Guatemala: {en: Guatemala, iso: GT, lac: true}
+Guyana: {en: Guyana, iso: GY, lac: true}
+Haití: {en: Haiti, iso: HT, lac: true, aliases: [haiti]}
+Honduras: {en: Honduras, iso: HN, lac: true}
+Jamaica: {en: Jamaica, iso: JM, lac: true}
+México: {en: Mexico, iso: MX, lac: true, aliases: [mexico, mx, mejico]}
+Nicaragua: {en: Nicaragua, iso: NI, lac: true}
+Panamá: {en: Panama, iso: PA, lac: true, aliases: [panama]}
+Paraguay: {en: Paraguay, iso: PY, lac: true}
+Perú: {en: Peru, iso: PE, lac: true, aliases: [peru]}
+Puerto Rico: {en: Puerto Rico, iso: PR, lac: true}
+República Dominicana: {en: Dominican Republic, iso: DO, lac: true, aliases: [republica dominicana, rep dominicana, rep. dominicana, dominican republic, rd]}
+Surinam: {en: Suriname, iso: SR, lac: true, aliases: [suriname]}
+Trinidad y Tabago: {en: Trinidad and Tobago, iso: TT, lac: true, aliases: [trinidad y tobago, trinidad and tobago, trinidad]}
+Uruguay: {en: Uruguay, iso: UY, lac: true}
+Venezuela: {en: Venezuela, iso: VE, lac: true, aliases: [republica bolivariana de venezuela, venezuela bolivarian republic of]}
+Antigua y Barbuda: {en: Antigua and Barbuda, iso: AG, lac: true, aliases: [antigua and barbuda]}
+Dominica: {en: Dominica, iso: DM, lac: true}
+Granada: {en: Grenada, iso: GD, lac: true, aliases: [grenada]}
+San Cristóbal y Nieves: {en: Saint Kitts and Nevis, iso: KN, lac: true, aliases: [saint kitts and nevis]}
+Santa Lucía: {en: Saint Lucia, iso: LC, lac: true, aliases: [saint lucia, santa lucia]}
+San Vicente y las Granadinas: {en: Saint Vincent and the Grenadines, iso: VC, lac: true, aliases: [saint vincent and the grenadines]}
+
+Estados Unidos: {en: United States, iso: US, lac: false, aliases: [united states of america, united states, usa, eeuu, ee.uu., estados unidos de america, us]}
+Canadá: {en: Canada, iso: CA, lac: false, aliases: [canada]}
+España: {en: Spain, iso: ES, lac: false, aliases: [spain, espana]}
+Portugal: {en: Portugal, iso: PT, lac: false}
+Francia: {en: France, iso: FR, lac: false, aliases: [france]}
+Alemania: {en: Germany, iso: DE, lac: false, aliases: [germany, deutschland]}
+Italia: {en: Italy, iso: IT, lac: false, aliases: [italy]}
+Países Bajos: {en: Netherlands, iso: NL, lac: false, aliases: [netherlands, holanda, paises bajos, the netherlands]}
+Reino Unido: {en: United Kingdom, iso: GB, lac: false, aliases: [united kingdom, uk, inglaterra, england]}
+Suiza: {en: Switzerland, iso: CH, lac: false, aliases: [switzerland]}
+Bélgica: {en: Belgium, iso: BE, lac: false, aliases: [belgium, belgica]}
+Suecia: {en: Sweden, iso: SE, lac: false, aliases: [sweden]}
+Austria: {en: Austria, iso: AT, lac: false}
+China: {en: China, iso: CN, lac: false}
+Japón: {en: Japan, iso: JP, lac: false, aliases: [japan, japon]}
+República de Corea: {en: Republic of Korea, iso: KR, lac: false, aliases: [korea, south korea, corea, corea del sur, republic of korea, korea republic of]}
+India: {en: India, iso: IN, lac: false}
+Marruecos: {en: Morocco, iso: MA, lac: false, aliases: [morocco]}
+Uganda: {en: Uganda, iso: UG, lac: false}
+Congo: {en: Congo, iso: CG, lac: false, aliases: [congo republic of the congo, republic of the congo]}
+Sudáfrica: {en: South Africa, iso: ZA, lac: false, aliases: [south africa, sudafrica]}
+Australia: {en: Australia, iso: AU, lac: false}
+Türkiye: {en: Türkiye, iso: TR, lac: false, aliases: [turkiye, turquia, turkey]}
+Rusia: {en: Russian Federation, iso: RU, lac: false, aliases: [russia, federacion de rusia, russian federation]}
+Israel: {en: Israel, iso: IL, lac: false}
+Noruega: {en: Norway, iso: "NO", lac: false, aliases: [norway]}
+Dinamarca: {en: Denmark, iso: DK, lac: false, aliases: [denmark]}
+Finlandia: {en: Finland, iso: FI, lac: false, aliases: [finland]}
+Irlanda: {en: Ireland, iso: IE, lac: false, aliases: [ireland]}

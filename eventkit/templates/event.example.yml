@@ -1,0 +1,9 @@
+# OPTIONAL. Put a file named event.yml inside the upload zip to correct or add
+# facts the exports don't contain. Everything here overrides what is detected.
+title_es: "Título de la sesión"
+title_en: "Session title"
+speaker: "Nombre Apellido"
+speaker_affiliation: "Cargo, Institución"
+moderator: "Nombre Apellido, cargo, institución"
+opening: "Nombre Apellido, cargo, institución"
+# id: "2026-11-03"   # only if two events share a date

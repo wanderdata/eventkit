@@ -1,0 +1,364 @@
+# Sector classification rules.
+# Order of precedence (first match wins):
+#   1. config/org_sectors.csv  (manual / cached decisions, exact organization text)
+#   2. email domain rules below
+#   3. keyword rules on the organization text (checked in the order of `order`)
+#   4. keyword rules on the job title
+#   5. (optional) Claude classifies what is left; results are cached in org_sectors.csv
+#   6. otherwise "sin_clasificar"
+# Keywords are matched on lowercase, accent-free text as whole words / phrases.
+
+labels:
+  publico:        {es: "Sector público", en: "Public sector", es_def: "el sector público", en_def: "the public sector"}
+  academia:       {es: "Universidades e instituciones de investigación", en: "Universities and research institutions", es_def: "las universidades e instituciones de investigación", en_def: "universities and research institutions"}
+  privado:        {es: "Sector privado", en: "Private sector", es_def: "el sector privado", en_def: "the private sector"}
+  internacional:  {es: "Organizaciones internacionales", en: "International organizations", es_def: "las organizaciones internacionales", en_def: "international organizations"}
+  sociedad_civil: {es: "Sociedad civil y ONG", en: "Civil society and NGOs", es_def: "las organizaciones de la sociedad civil", en_def: "civil society organizations"}
+  otros:          {es: "Independientes y otros", en: "Independent and other", es_def: "profesionales independientes y otros", en_def: "independent professionals and others"}
+  sin_clasificar: {es: "Sin clasificar", en: "Unclassified"}
+
+order: [internacional, academia, publico, sociedad_civil, otros, privado]
+
+email_domains:
+  internacional: [cepal.org, eclac.org, un.org, undp.org, unesco.org, unicef.org, fao.org, ilo.org, iadb.org, worldbank.org, caf.com, oecd.org, oas.org, iica.int, unido.org, giz.de, merit.unu.edu, unu.edu, sela.org, aladi.org, sica.int, wto.org, imf.org, wipo.int]
+  academia_suffix: [.edu, .edu.ar, .edu.bo, .edu.br, .edu.co, .edu.ec, .edu.mx, .edu.pe, .edu.py, .edu.sv, .edu.uy, .edu.ve, .edu.gt, .edu.hn, .edu.ni, .edu.pa, .edu.do, .edu.cu, .ac.uk, .ac.cr, .uchile.cl, .uc.cl, .udec.cl, .ubiobio.cl, .usach.cl, .unam.mx, .itesm.mx, .tec.mx, .ox.ac.uk, .unal.edu.co, .uba.ar, .unlp.edu.ar, .ucr.ac.cr, .pucp.pe, .unmsm.edu.pe, .unsa.edu.pe]
+  publico_suffix: [.gob, .gov, .gob.ar, .gob.bo, .gob.cl, .gob.do, .gob.ec, .gob.gt, .gob.hn, .gob.mx, .gob.ni, .gob.pa, .gob.pe, .gob.sv, .gob.ve, .gov.br, .gov.co, .gov.py, .gub.uy, .go.cr, .gov.uk, .gc.ca, .mil, .corfo.cl, .sence.cl]
+
+keywords:
+  internacional:
+  - cepal
+  - eclac
+  - naciones unidas
+  - united nations
+  - onu
+  - pnud
+  - undp
+  - unesco
+  - unicef
+  - fao
+  - oit
+  - ilo
+  - bid
+  - idb
+  - banco interamericano
+  - banco mundial
+  - world bank
+  - caf
+  - banco de desarrollo de america latina
+  - ocde
+  - oecd
+  - oea
+  - iica
+  - unu
+  - unu-merit
+  - unido
+  - onudi
+  - sela
+  - aladi
+  - giz
+  - jica
+  - koica
+  - usaid
+  - union europea
+  - european union
+  - sica
+  - sieca
+  - bcie
+  - fmi
+  - imf
+  - ompi
+  - wipo
+  - omc
+  - wto
+  - organizacion internacional
+  - international organization
+  - cooperacion internacional
+  - unctad
+  - cooperacion alemana
+  academia:
+  - universidad
+  - university
+  - universidade
+  - universite
+  - univ
+  - uni
+  - instituto tecnologico
+  - tecnologico de
+  - tec de monterrey
+  - escuela de
+  - escuela superior
+  - facultad
+  - college
+  - school
+  - business school
+  - flacso
+  - conicet
+  - centro de investigacion
+  - centro de investigaciones
+  - centro de estudios
+  - research
+  - research center
+  - research centre
+  - think tank
+  - academia
+  - academico
+  - colegio de mexico
+  - unam
+  - uba
+  - unlp
+  - pucp
+  - unmsm
+  - ucr
+  - usach
+  - uchile
+  - utec
+  - ipn
+  - cide
+  - itam
+  - ibero
+  - fiocruz
+  - ipea
+  - fedesarrollo
+  - grade
+  - cieplan
+  - clacso
+  - estudiante
+  - student
+  - politecnico
+  - instituto politecnico
+  - iestp
+  - cft
+  - centro de formacion tecnica
+  - anuies
+  - colegio
+  - liceo
+  - escuela publica
+  - instituto superior
+  - iest
+  - universidad nacional
+  - uni-
+  publico:
+  - bakanligi
+  - osinergmin
+  - osiptel
+  - indecopi
+  - inapi
+  - inces
+  - centre de facilitation
+  - inia
+  - proinnovate
+  - micitt
+  - mideplan
+  - midagri
+  - semarnat
+  - ministerio
+  - ministry
+  - ministerio de
+  - secretaria
+  - secretaria de
+  - subsecretaria
+  - gobierno
+  - government
+  - gobierno regional
+  - gobierno provincial
+  - gobierno municipal
+  - municipalidad
+  - municipio
+  - municipal
+  - alcaldia
+  - ayuntamiento
+  - gobernacion
+  - prefeitura
+  - intendencia
+  - congreso
+  - senado
+  - asamblea legislativa
+  - asamblea nacional
+  - camara de diputados
+  - poder judicial
+  - fiscalia
+  - contraloria
+  - procuraduria
+  - defensoria
+  - banco central
+  - superintendencia
+  - agencia nacional
+  - agencia de
+  - servicio nacional
+  - consejo nacional
+  - instituto nacional
+  - direccion nacional
+  - direccion general
+  - presidencia
+  - embajada
+  - embassy
+  - consulado
+  - cancilleria
+  - corfo
+  - sence
+  - conacyt
+  - conahcyt
+  - secihti
+  - senacyt
+  - concytec
+  - anid
+  - minciencias
+  - prochile
+  - procolombia
+  - promperu
+  - produce
+  - sunat
+  - sii
+  - inei
+  - inegi
+  - dane
+  - ine
+  - sat
+  - pemex
+  - codelco
+  - ecopetrol
+  - petroperu
+  - empresa publica
+  - empresa estatal
+  - estatal
+  - sector publico
+  - public sector
+  - servidor publico
+  - funcionario publico
+  - gob
+  - gore
+  - dnp
+  - mincetur
+  - mintic
+  - planning institute
+  - caja nacional de salud
+  - seguro social
+  - gobierno de
+  - pcia
+  - provincia de
+  - estado de
+  - implan
+  - implanc
+  - instituto de desarrollo productivo
+  - comite presupuesto participativo
+  sociedad_civil:
+  - fundacion
+  - foundation
+  - fundacao
+  - ong
+  - ngo
+  - asociacion civil
+  - organizacion de la sociedad civil
+  - sociedad civil
+  - civil society
+  - sindicato
+  - central de trabajadores
+  - colectivo
+  - movimiento
+  - red de
+  - iglesia
+  - caritas
+  - oxfam
+  - wwf
+  - a.c.
+  - a.c
+  - ac
+  - asociacion
+  - association
+  - cooperativa
+  - coop
+  privado:
+  - s.a.
+  - sa
+  - s.a.c
+  - sac
+  - s.a.s
+  - sas
+  - srl
+  - s.r.l
+  - ltda
+  - ltd
+  - inc
+  - llc
+  - corp
+  - corporation
+  - corporacion
+  - company
+  - compania
+  - empresa
+  - empresas
+  - consultora
+  - consultores
+  - consulting
+  - consultancy
+  - consultoria
+  - group
+  - grupo
+  - holding
+  - banco
+  - bank
+  - camara de comercio
+  - camara de industria
+  - camara
+  - chamber of commerce
+  - gremio
+  - asociacion de exportadores
+  - asociacion de industriales
+  - confederacion
+  - sociedad nacional de industrias
+  - industrias
+  - industria
+  - sector privado
+  - private sector
+  - startup
+  - pyme
+  - mipyme
+  - emprendedor
+  - emprendimiento
+  - negocio
+  - comercial
+  - abogados
+  - studio
+  - estudio juridico
+  - foxconn
+  - bbva
+  - santander
+  - deloitte
+  - pwc
+  - kpmg
+  - ey
+  - mckinsey
+  - accenture
+  - microsoft
+  - google
+  - mesopartner
+  - rl
+  - s. de r.l.
+  - sapi
+  - lab
+  - partners
+  - agencia
+  - consulting group
+  otros:
+  - independiente
+  - independent
+  - freelance
+  - particular
+  - jubilado
+  - jubilada
+  - retired
+  - ninguna
+  - ninguno
+  - none
+  - n/a
+  - na
+  - sin organizacion
+  - personal
+  - desempleado
+  - desempleada
+  - periodista
+  - journalist
+  - investigador independiente
+  - consultor independiente
+  - consultora independiente
+  - asesor independiente
