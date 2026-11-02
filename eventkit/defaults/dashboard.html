@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Webinar Series Dashboard</title>
+<title>Tablero de webinars</title>
 <style>
 :root{
   color-scheme:light;
@@ -63,15 +63,26 @@ details{margin-top:8px}
 summary{cursor:pointer;color:var(--ink2);font-size:13.5px}
 .review{font-size:13px;white-space:pre-wrap;color:var(--ink2);background:var(--page);padding:10px;border-radius:8px}
 .empty{color:var(--muted);font-size:13px}
+.pbtn{font:inherit;font-size:13.5px;border:1px solid var(--ring);background:var(--surface);color:var(--ink);padding:6px 12px;border-radius:8px;cursor:pointer}
+.kpi .d{font-size:12px;color:var(--ink2);margin-top:2px}
+.kgroup{font-size:12px;font-weight:650;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:4px 0 8px}
+.facts{background:var(--surface);border:1px solid var(--ring);border-radius:12px;padding:14px 16px;margin-bottom:16px}
+.facts h2{font-size:15px;margin:0 0 6px}
+.facts ul{margin:0;padding-left:18px}
+.facts li{margin:3px 0}
 @media (max-width:520px){.kpi .v{font-size:22px}h1{font-size:19px}}
+@media print{
+  body{background:#fff}
+  .tabs,.pbtn,.btns,details,.article{display:none!important}
+  .card,.kpi,.facts{break-inside:avoid;border-color:#ccc}
+  main{padding:0}
+}
 </style>
 </head>
 <body>
 <header>
   <div><h1 id="title"></h1><div class="sub" id="subtitle"></div></div>
-  <div class="lang" role="group" aria-label="Language">
-    <button data-l="es">ES</button><button data-l="en">EN</button>
-  </div>
+  <button class="pbtn" id="print" type="button">Imprimir / guardar PDF</button>
 </header>
 <nav class="tabs" id="tabs" role="tablist"></nav>
 <main id="main"></main>
@@ -79,11 +90,10 @@ summary{cursor:pointer;color:var(--ink2);font-size:13.5px}
 <script>
 const DATA = /*__DATA__*/null;
 const T = {
- es:{series:"Toda la serie",events:"Sesiones",unique:"Personas únicas",uniqueN:"asistentes distintos en la serie",regs:"Inscripciones",conv:"Tasa de asistencia",convN:"inscritos que se conectaron",twoplus:"Asistieron a 2+ sesiones",women:"Mujeres",lac:"América Latina y el Caribe",participants:"Participantes",participantsN:"conexiones únicas, incl. organización",attendees:"Público",peak:"Pico simultáneo",median:"Minutos conectados (mediana)",stayed:"Se quedaron más de la mitad",countries:"Países",questions:"Preguntas en el chat",regVsPart:"Inscritos y participantes por sesión",regVsPartH:"Personas únicas por sesión",newRet:"Público nuevo y recurrente",newRetH:"Recurrente = asistió a una sesión anterior de la serie",new:"Nuevo",ret:"Recurrente",tableT:"Resumen por sesión",date:"Fecha",session:"Sesión",speaker:"Ponente",over:"Personas conectadas durante la sesión",overH:"Público (sin organización ni panel), cada 2 minutos",byCountry:"Participantes por país",byCountryH:"Según el formulario de inscripción; % sobre participantes con país conocido",bySector:"Participantes por sector",bySectorH:"Clasificado a partir de la organización y el correo; editable en config/org_sectors.csv",byGender:"Participantes por género",funnel:"Inscritos y asistentes por país",funnelH:"Los 12 países con más inscripciones",registered:"Inscritos",attended:"Asistieron",summary:"Nota informativa",download:"Descargar Word",review:"Revisión automática (citas y nombres)",noSummary:"Aún no hay nota para esta sesión.",F:"Mujeres",M:"Hombres",O:"Otro / prefiere no decir",others:"Otros",usNote:n=>`Se descartaron ${n} respuestas «Estados Unidos» que Webex preselecciona en el formulario (país desconocido salvo que el correo indique otro país).`,inferredNote:n=>`País inferido desde el dominio del correo para ${n} personas.`,of:"de",min:"min",people:"personas"},
- en:{series:"Whole series",events:"Sessions",unique:"Unique people",uniqueN:"distinct attendees across the series",regs:"Registrations",conv:"Show-up rate",convN:"registrants who connected",twoplus:"Attended 2+ sessions",women:"Women",lac:"Latin America and the Caribbean",participants:"Participants",participantsN:"unique connections, incl. organizers",attendees:"Audience",peak:"Peak concurrent",median:"Minutes connected (median)",stayed:"Stayed more than half",countries:"Countries",questions:"Questions in chat",regVsPart:"Registrants and participants per session",regVsPartH:"Unique people per session",newRet:"New and returning audience",newRetH:"Returning = attended an earlier session of the series",new:"New",ret:"Returning",tableT:"Summary by session",date:"Date",session:"Session",speaker:"Speaker",over:"People connected during the session",overH:"Audience (excluding organizers and panel), every 2 minutes",byCountry:"Participants by country",byCountryH:"From the registration form; % of participants with known country",bySector:"Participants by sector",bySectorH:"Classified from organization and e-mail; editable in config/org_sectors.csv",byGender:"Participants by gender",funnel:"Registrants and attendees by country",funnelH:"Top 12 countries by registrations",registered:"Registered",attended:"Attended",summary:"News article",download:"Download Word",review:"Automatic review (quotes and names)",noSummary:"No article yet for this session.",F:"Women",M:"Men",O:"Other / prefer not to say",others:"Others",usNote:n=>`${n} “United States” answers pre-selected by the Webex form were discarded (country unknown unless the e-mail domain shows another country).`,inferredNote:n=>`Country inferred from the e-mail domain for ${n} people.`,of:"of",min:"min",people:"people"}
+ es:{series:"Toda la serie",events:"Sesiones",unique:"Personas únicas",uniqueN:"asistentes distintos en la serie",regs:"Inscripciones",conv:"Tasa de asistencia",convN:"inscritos que se conectaron",twoplus:"Asistieron a 2+ sesiones",women:"Mujeres",lac:"América Latina y el Caribe",participants:"Participantes",participantsN:"conexiones únicas, incl. organización",attendees:"Público",peak:"Pico simultáneo",median:"Minutos conectados (mediana)",stayed:"Se quedaron más de la mitad",countries:"Países",questions:"Preguntas en el chat",regVsPart:"Inscritos y participantes por sesión",regVsPartH:"Personas únicas por sesión",newRet:"Público nuevo y recurrente",newRetH:"Recurrente = asistió a una sesión anterior de la serie",new:"Nuevo",ret:"Recurrente",tableT:"Resumen por sesión",date:"Fecha",session:"Sesión",speaker:"Ponente",over:"Personas conectadas durante la sesión",overH:"Público (sin organización ni panel), cada 2 minutos",byCountry:"Participantes por país",byCountryH:"Según el formulario de inscripción; % sobre participantes con país conocido",bySector:"Participantes por sector",bySectorH:"Clasificado a partir de la organización y el correo; editable en config/org_sectors.csv",byGender:"Participantes por género",funnel:"Inscritos y asistentes por país",funnelH:"Los 12 países con más inscripciones",registered:"Inscritos",attended:"Asistieron",summary:"Nota informativa",download:"Descargar Word",review:"Revisión automática (citas y nombres)",noSummary:"Aún no hay nota para esta sesión.",F:"Mujeres",M:"Hombres",O:"Otro / prefiere no decir",others:"Otros",usNote:n=>`Se descartaron ${n} respuestas «Estados Unidos» que Webex preselecciona en el formulario (país desconocido salvo que el correo indique otro país).`,inferredNote:n=>`País inferido desde el dominio del correo para ${n} personas.`,of:"de",min:"min",people:"personas"}
 };
-let lang = (()=>{try{return localStorage.getItem("ek-lang")||"es"}catch(e){return "es"}})();
-let tab = (()=>{try{return localStorage.getItem("ek-tab")||"series"}catch(e){return "series"}})();
+const lang = "es";
+let tab = decodeURIComponent(location.hash.slice(1)) || "series";
 const $ = (s,el=document)=>el.querySelector(s);
 const h = (tag,attrs={},...kids)=>{const e=document.createElement(tag);for(const[k,v]of Object.entries(attrs)){if(k==="class")e.className=v;else if(k==="text")e.textContent=v;else e.setAttribute(k,v)}for(const k of kids)if(k!=null)e.append(k);return e};
 const NS="http://www.w3.org/2000/svg";
@@ -176,7 +186,12 @@ function md(src){
 }
 
 /* ---------- views ---------- */
-const kpi=(v,l,n)=>h("div",{class:"kpi"},h("div",{class:"v",text:v}),h("div",{class:"l",text:l}),n?h("div",{class:"n",text:n}):null);
+const kpi=(v,l,n,d)=>h("div",{class:"kpi"},h("div",{class:"v",text:v}),h("div",{class:"l",text:l}),n?h("div",{class:"n",text:n}):null,d?h("div",{class:"d",text:d}):null);
+// change vs. previous session: counts in %, shares in percentage points
+function delta(cur,prev,kind){
+  if(cur==null||prev==null)return null;
+  if(kind==="pp"){const x=cur-prev;return `${x>0?"▲ +":x<0?"▼ −":"= "}${fmt(Math.abs(x),0)} pp vs. sesión anterior`}
+  if(!prev)return null;const x=100*(cur-prev)/prev;return `${x>0?"▲ +":x<0?"▼ −":"= "}${fmt(Math.abs(x),0)}% vs. sesión anterior`}
 const card=(title,hint,...body)=>h("section",{class:"card"},h("h2",{text:title}),hint?h("p",{class:"hint",text:hint}):null,...body);
 
 function seriesView(){
@@ -203,21 +218,41 @@ function seriesView(){
 }
 
 function eventView(e){
-  const d=e.demographics;
-  const head=h("div",{class:"ev-head"},h("h2",{text:evTitle(e)}),h("div",{class:"meta",text:[e.speaker,dateStr(e.date)].filter(Boolean).join(" · ")}));
+  const d=e.demographics, idx=DATA.events.indexOf(e), P=idx>0?DATA.events[idx-1]:null, pd=P?P.demographics:{};
+  const head=h("div",{class:"ev-head"},h("h2",{text:evTitle(e)}),h("div",{class:"meta",text:[e.speaker,e.speaker_affiliation,dateStr(e.date)].filter(Boolean).join(" · ")}));
   const notes=[];const dn=e.data_notes||{};
   if(dn.us_default_discarded)notes.push(t("usNote")(dn.us_default_discarded));
   if(dn.country_inferred_from_email)notes.push(t("inferredNote")(dn.country_inferred_from_email));
-  const k=h("div",{class:"kpis"},
-    kpi(fmt(e.participants_total),t("participants"),t("participantsN")),
-    kpi(fmt(e.registrations),t("registered")),
-    kpi(pct(e.conversion_pct),t("conv"),t("convN")),
-    kpi(fmt(e.peak_concurrent),t("peak")),
-    kpi(fmt(e.minutes_median)+" "+t("min"),t("median"),e.duration_min?`${t("of")} ${e.duration_min} ${t("min")}`:null),
-    kpi(pct(e.stayed_half_pct),t("stayed")),
-    kpi(fmt(d.countries_n),t("countries")),
-    kpi(pct(d.women_pct),t("women")),
-    kpi(fmt(e.chat.questions),t("questions")));
+  const ser=e.series||{}, pser=P?(P.series||{}):{};
+  const g=(title,...tiles)=>[h("div",{class:"kgroup",text:title}),h("div",{class:"kpis"},...tiles)];
+  const kp=[
+    ...g("Alcance",
+      kpi(fmt(e.participants_total),t("participants"),t("participantsN"),P&&delta(e.participants_total,P.participants_total)),
+      kpi(fmt(e.registrations),t("registered"),null,P&&delta(e.registrations,P.registrations)),
+      kpi(pct(e.conversion_pct),t("conv"),t("convN"),P&&delta(e.conversion_pct,P.conversion_pct,"pp")),
+      kpi(fmt(d.countries_n),t("countries"),null,P&&delta(d.countries_n,pd.countries_n)),
+      kpi(pct(d.lac_pct),t("lac"),null,P&&delta(d.lac_pct,pd.lac_pct,"pp"))),
+    ...g("Participación",
+      kpi(fmt(e.peak_concurrent),t("peak"),null,P&&delta(e.peak_concurrent,P.peak_concurrent)),
+      kpi(fmt(e.minutes_median)+" "+t("min"),t("median"),e.duration_min?`${t("of")} ${e.duration_min} ${t("min")}`:null),
+      kpi(pct(e.stayed_half_pct),t("stayed"),null,P&&delta(e.stayed_half_pct,P.stayed_half_pct,"pp")),
+      kpi(fmt(e.chat.questions),t("questions"),null,P&&delta(e.chat.questions,P.chat.questions)),
+      kpi(fmt(e.chat.people),"Personas que escribieron en el chat")),
+    ...g("Perfil del público",
+      kpi(pct(d.women_pct),t("women"),null,P&&delta(d.women_pct,pd.women_pct,"pp")),
+      kpi(pct(ser.returning_pct),"Público recurrente",idx>0?"asistió a una sesión anterior":"primera sesión de la serie"),
+      d.sectors[0]?kpi(pct(d.sectors[0].pct),secName(d.sectors[0].key),"sector principal"):null,
+      d.countries[0]?kpi(pct(d.countries[0].pct),cname(d.countries[0].key),"país con más participantes"):null),
+  ];
+  // key facts in plain Spanish
+  const facts=[];
+  facts.push(`Participaron ${fmt(e.participants_total)} personas de ${fmt(d.countries_n)} países` + (e.registrations?`, sobre ${fmt(e.registrations)} inscripciones (tasa de asistencia de ${pct(e.conversion_pct)}${P&&P.conversion_pct!=null?`; ${pct(P.conversion_pct)} en la sesión anterior`:""}).`:"."));
+  const top3=d.countries.slice(0,3);if(top3.length)facts.push(`${top3.map(c=>cname(c.key)).join(", ").replace(/, ([^,]*)$/," y $1")} concentraron el ${pct(top3.reduce((a,c)=>a+c.pct,0))} de los participantes con país conocido; el ${pct(d.lac_pct)} provino de América Latina y el Caribe.`);
+  if(e.peak_concurrent)facts.push(`El máximo de personas conectadas a la vez fue ${fmt(e.peak_concurrent)}; la mitad del público estuvo conectada al menos ${fmt(e.minutes_median)} minutos y el ${pct(e.stayed_half_pct)} se quedó más de la mitad de la sesión.`);
+  if(d.women_pct!=null&&d.sectors.length>1)facts.push(`Las mujeres representaron el ${pct(d.women_pct)} de la participación. Por sector destacaron ${(DATA.sectors[d.sectors[0].key]||{}).es_def} (${pct(d.sectors[0].pct)}) y ${(DATA.sectors[d.sectors[1].key]||{}).es_def} (${pct(d.sectors[1].pct)}).`);
+  if(idx>0&&ser.returning!=null)facts.push(`${fmt(ser.returning)} personas del público (${pct(ser.returning_pct)}) ya habían asistido a una sesión anterior de la serie.`);
+  if(e.chat.messages)facts.push(`En el chat se publicaron ${fmt(e.chat.messages)} mensajes de ${fmt(e.chat.people)} personas, con ${fmt(e.chat.questions)} preguntas.`);
+  const factsBox=h("section",{class:"facts"},h("h2",{text:"Datos clave"}),h("ul",{},...facts.map(f=>h("li",{text:f}))));
   const top=d.countries.slice(0,10),rest=d.countries.slice(10);
   const crow=top.map(c=>({label:cname(c.key),n:c.pct,tip:[cname(c.key),`${fmt(c.n)} ${t("people")} · ${fmt(c.pct,1)}%`]}));
   if(rest.length){const n=rest.reduce((a,c)=>a+c.n,0),p=rest.reduce((a,c)=>a+c.pct,0);crow.push({label:`${t("others")} (${rest.length})`,n:p,tip:[`${t("others")}: ${rest.map(c=>cname(c.key)).join(", ")}`,`${fmt(n)} ${t("people")} · ${fmt(p,1)}%`]})}
@@ -233,13 +268,13 @@ function eventView(e){
       hbars(e.country_funnel.slice(0,12).map(c=>({label:cname(c.key),reg:c.reg,att:c.att,tip:[cname(c.key),`${t("registered")}: ${fmt(c.reg)}`,`${t("attended")}: ${fmt(c.att)} (${pct(100*c.att/c.reg)})`]})),
         {series:[{key:"reg",color:"var(--s1)",label:t("registered")},{key:"att",color:"var(--s2)",label:t("attended")}]})));
   }
-  const txt=e.summary[lang]||e.summary.es;
+  const txt=e.summary.es||e.summary.en;
   const art=h("div",{class:"article"});
   if(txt){art.innerHTML=md(txt)}else art.append(h("p",{class:"empty",text:t("noSummary")}));
-  const btns=h("div",{class:"btns"},...Object.entries(e.docx||{}).map(([l,f])=>h("a",{class:"btn",href:f,download:""},`${t("download")} (${l.toUpperCase()})`)));
+  const btns=h("div",{class:"btns"},...Object.entries(e.docx||{}).map(([l,f])=>h("a",{class:"btn",href:f,download:""},`${t("download")} (${l==="es"?"español":"inglés"})`)));
   const rev=e.review?h("details",{},h("summary",{text:t("review")}),h("div",{class:"review",text:e.review})):null;
   charts.push(h("section",{class:"card",style:"grid-column:1/-1"},h("h2",{text:t("summary")}),btns,art,rev));
-  return [head,...notes.map(n=>h("div",{class:"note",text:n})),k,h("div",{class:"grid"},...charts)];
+  return [head,factsBox,...kp,...notes.map(n=>h("div",{class:"note",text:n})),h("div",{class:"grid"},...charts)];
 }
 
 function render(){
@@ -247,15 +282,15 @@ function render(){
   const C=DATA.config||{};
   $("#title").textContent=(lang==="es"?C.dashboard_title_es:C.dashboard_title_en)||"Webinars";
   $("#subtitle").textContent=(lang==="es"?C.series_name_es:C.series_name_en)||"";
-  document.querySelectorAll(".lang button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.l===lang));
   const tabs=$("#tabs");tabs.replaceChildren();
   const ids=["series",...DATA.events.map(e=>e.id)];if(!ids.includes(tab))tab="series";
   ids.forEach((id,i)=>{const e=DATA.events.find(x=>x.id===id);
     const b=h("button",{role:"tab","aria-selected":id===tab},id==="series"?t("series"):`#${i} · ${dateStr(e.date)}`);
-    b.title=e?evTitle(e):"";b.onclick=()=>{tab=id;try{localStorage.setItem("ek-tab",id)}catch(_){}render()};tabs.append(b)});
+    b.title=e?evTitle(e):"";b.onclick=()=>{tab=id;history.replaceState(null,"","#"+id);render();scrollTo(0,0)};tabs.append(b)});
   const m=$("#main");m.replaceChildren(...(tab==="series"?seriesView():eventView(DATA.events.find(x=>x.id===tab))));
 }
-document.querySelectorAll(".lang button").forEach(b=>b.onclick=()=>{lang=b.dataset.l;try{localStorage.setItem("ek-lang",lang)}catch(_){}render()});
+$("#print").onclick=()=>print();
+addEventListener("hashchange",()=>{tab=decodeURIComponent(location.hash.slice(1))||"series";render()});
 render();
 </script>
 </body>

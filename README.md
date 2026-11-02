@@ -4,7 +4,7 @@ Turn the files Webex exports after a webinar into:
 
 1. a **news article in Spanish and English** written by Claude (with Word downloads and an automatic check of quotes and names);
 2. **participation statistics** for the event: registrations, show-up rate, countries, gender, sector, time connected, chat activity;
-3. a **series dashboard** (static HTML for GitLab Pages) that tracks all events together, including returning attendees.
+3. a **dashboard in Spanish** (static HTML for GitLab Pages): one KPI panel per event (reach, engagement, audience profile, change vs. the previous session, key facts in plain Spanish, printable as PDF) plus a series view that tracks all events together, including returning attendees. Each event has its own link (`…/#2026-10-20`).
 
 The tool holds **no data**. Each webinar series lives in its own private folder or repository (a *series folder*), and that's where you run `eventkit`.
 

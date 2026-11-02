@@ -18,7 +18,7 @@ from . import paths
 
 def _labels():
     r = N.sector_rules()["labels"]
-    return {k: {"es": v["es"], "en": v["en"]} for k, v in r.items()}
+    return {k: {"es": v["es"], "en": v["en"], "es_def": v.get("es_def", v["es"].lower())} for k, v in r.items()}
 
 
 def _country_en():
