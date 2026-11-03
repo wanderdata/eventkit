@@ -1,4 +1,7 @@
 """Participation statistics for one event (pure code, no AI)."""
+
+# Bump when event_stats() gains or changes fields; the app then recomputes older events.
+STATS_VERSION = 2
 from __future__ import annotations
 
 import pandas as pd
@@ -151,6 +154,7 @@ def event_stats(people: pd.DataFrame, raw_rows: pd.DataFrame, meta: EventMeta,
         dur_min = max(1, (meta.actual_end - meta.planned_start).total_seconds() / 60)
 
     s = {
+        "stats_version": STATS_VERSION,
         "webinar_name": meta.webinar_name,
         "date": meta.planned_start.strftime("%Y-%m-%d") if meta.planned_start is not None else None,
         "planned_start": str(meta.planned_start) if meta.planned_start is not None else None,

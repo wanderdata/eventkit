@@ -170,3 +170,12 @@ def test_series_catalog_and_app_pages(home, tmp_path, monkeypatch):
         at.session_state["nav"] = page
         at.run()
         assert not at.exception, (page, at.exception)
+
+
+def test_new_indicators_present(home, tmp_path):
+    from eventkit.stats import STATS_VERSION
+    cli.process([make(tmp_path / "x", date="2026-05-12", seed=9)])
+    e = store.load_events()[0]
+    assert e["stats_version"] == STATS_VERSION
+    assert e["minutes_hist"] and e["registration_curve"]["points"] and "late_pct" in e
+    assert all("m" in p for p in e["timeline"])

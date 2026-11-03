@@ -138,9 +138,20 @@ def open_store(force=False):
     if CAT.ensure():   # first run with series: file existing events under the first series
         save(stg, "Clasificar eventos en series y tipos")
     _check_salt(stg)
+    _check_stats_version(stg)
     if not (paths.public_dir() / "index.html").exists():
         build_site()
     return stg
+
+
+def _check_stats_version(stg):
+    """Recompute events processed by older code so new indicators appear for them too."""
+    from eventkit.stats import STATS_VERSION
+    old = [e["id"] for e in S.load_events() if e.get("stats_version", 1) < STATS_VERSION]
+    if old:
+        with st.spinner(f"Actualizando indicadores de {len(old)} eventos (solo esta vez)…"):
+            cli.rebuild()
+        save(stg, "Recalcular indicadores con la versión actual")
 
 
 def _check_salt(stg):
