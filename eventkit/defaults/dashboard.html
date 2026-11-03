@@ -102,6 +102,7 @@ summary{cursor:pointer;color:var(--ink2);font-size:13.5px}
 <div class="tip" id="tip" role="tooltip"></div>
 <script>
 const DATA = /*__DATA__*/null;
+DATA.series_list=DATA.series_list||[];DATA.series_metrics=DATA.series_metrics||{};DATA.global=DATA.global||{};DATA.events=DATA.events||[];
 const T = {
  es:{series:"Toda la serie",events:"Sesiones",unique:"Personas únicas",uniqueN:"asistentes distintos en la serie",regs:"Inscripciones",conv:"Tasa de asistencia",convN:"inscritos que se conectaron",twoplus:"Asistieron a 2+ sesiones",women:"Mujeres",lac:"América Latina y el Caribe",participants:"Participantes",participantsN:"conexiones únicas, incl. organización",attendees:"Público",peak:"Pico simultáneo",median:"Minutos conectados (mediana)",stayed:"Se quedaron más de la mitad",countries:"Países",questions:"Preguntas en el chat",regVsPart:"Inscritos y participantes por sesión",regVsPartH:"Personas únicas por sesión",newRet:"Público nuevo y recurrente",newRetH:"Recurrente = asistió a una sesión anterior de la serie",new:"Nuevo",ret:"Recurrente",tableT:"Resumen por sesión",date:"Fecha",session:"Sesión",speaker:"Ponente",over:"Personas conectadas durante la sesión",overH:"Público (sin organización ni panel), cada 2 minutos",byCountry:"Participantes por país",byCountryH:"Según el formulario de inscripción; % sobre participantes con país conocido",bySector:"Participantes por sector",bySectorH:"Clasificado a partir de la organización y el correo de cada persona",byGender:"Participantes por género",funnel:"Inscritos y asistentes por país",funnelH:"Los 12 países con más inscripciones",registered:"Inscritos",attended:"Asistieron",summary:"Nota informativa",download:"Descargar Word",review:"Revisión automática (citas y nombres)",noSummary:"Aún no hay nota para esta sesión.",F:"Mujeres",M:"Hombres",O:"Otro / prefiere no decir",others:"Otros",usNote:n=>`Se descartaron ${n} respuestas «Estados Unidos» que Webex preselecciona en el formulario (país desconocido salvo que el correo indique otro país).`,inferredNote:n=>`País inferido desde el dominio del correo para ${n} personas.`,of:"de",min:"min",people:"personas"}
 };
@@ -146,7 +147,8 @@ function hbars(rows,{series=[{key:"n",color:"var(--s1)",label:""}],valueFmt=v=>f
 
 function vbars(cats,series,{stacked=false}={}){
   const wrap=h("div");const draw=()=>{
-    const W=Math.max(280,wrap.clientWidth||460),H=230,pl=40,pb=40,pt=18,iw=W-pl-8,ih=H-pb-pt;
+    const hasNote=cats.some(c=>c.note);
+    const W=Math.max(280,wrap.clientWidth||460),H=hasNote?250:230,pl=40,pb=hasNote?56:40,pt=18,iw=W-pl-8,ih=H-pb-pt;
     const tot=cats.map((_,i)=>stacked?series.reduce((a,sr)=>a+(sr.values[i]||0),0):Math.max(...series.map(sr=>sr.values[i]||0)));
     const mx=niceMax(Math.max(1,...tot));const svg=s("svg",{viewBox:`0 0 ${W} ${H}`,height:H,role:"img"});
     for(const v of ticks(mx)){const y=pt+ih-ih*v/mx;svg.append(s("line",{x1:pl,x2:W-8,y1:y,y2:y,stroke:v?"var(--grid)":"var(--axis)"}));const tx=s("text",{x:pl-6,y:y+4,"text-anchor":"end"});tx.textContent=fmt(v);svg.append(tx)}
@@ -159,6 +161,7 @@ function vbars(cats,series,{stacked=false}={}){
       if(stacked){const vt=s("text",{x:cx,y:pt+ih-ih*acc/mx-5,"text-anchor":"middle",class:"val"});vt.textContent=fmt(acc);svg.append(vt)}
       const lb=s("text",{x:cx,y:H-pb+16,"text-anchor":"middle",class:"lbl"});lb.textContent=c.label;svg.append(lb);
       const lb2=s("text",{x:cx,y:H-pb+30,"text-anchor":"middle"});lb2.textContent=c.sub||"";svg.append(lb2);
+      if(c.note){const lb3=s("text",{x:cx,y:H-pb+45,"text-anchor":"middle",class:"lbl",style:"font-weight:600"});lb3.textContent=c.note;svg.append(lb3)}
       const hit=s("rect",{x:pl+bw*i,y:pt,width:bw,height:ih,fill:"transparent"});
       const lines=[c.tipTitle||c.label,...series.filter(sr=>!stacked||sr.values[i]).map(sr=>`${sr.label}: ${fmt(sr.values[i]||0)}`)];
       hit.addEventListener("pointermove",e=>showTip(e,lines));hit.addEventListener("pointerleave",hideTip);svg.append(hit)});
@@ -168,6 +171,119 @@ function vbars(cats,series,{stacked=false}={}){
 function niceStep(v){const p=Math.pow(10,Math.floor(Math.log10(v)));for(const m of [1,2,2.5,5,10])if(m*p>=v)return m*p;return v}
 function niceMax(v){const st=niceStep(v/4);return Math.ceil(v/st)*st}
 function ticks(mx){const st=niceStep(mx/4);const out=[];for(let v=0;v<=mx+1e-9;v+=st)out.push(v);return out}
+
+// ---- attendance over time + chat activity strip + scheduled start marker
+function timelineChart(pts,chat){
+  const wrap=h("div");const cmap={};(chat||[]).forEach(c=>cmap[c.t]=c.n);
+  const draw=()=>{
+    const W=Math.max(300,wrap.clientWidth||600),pl=40,pr=12,iw=W-pl-pr,top=14,H1=190,gap=26,H2=chat&&chat.length?44:0,H=top+H1+(H2?gap+H2:0)+24;
+    const mx=niceMax(Math.max(1,...pts.map(p=>p.n))),cmx=Math.max(1,...pts.map(p=>cmap[p.t]||0));
+    const X=i=>pl+iw*i/Math.max(1,pts.length-1),Y=v=>top+H1-H1*v/mx;
+    const svg=s("svg",{viewBox:`0 0 ${W} ${H}`,height:H,role:"img"});
+    for(const v of ticks(mx)){const y=Y(v);svg.append(s("line",{x1:pl,x2:W-pr,y1:y,y2:y,stroke:v?"var(--grid)":"var(--axis)"}));const tx=s("text",{x:pl-6,y:y+4,"text-anchor":"end"});tx.textContent=fmt(v);svg.append(tx)}
+    const st=pts.findIndex(p=>p.m!=null&&p.m>=0);
+    if(st>0){svg.append(s("line",{x1:X(st),x2:X(st),y1:top,y2:top+H1,stroke:"var(--ink2)","stroke-dasharray":"3 3",opacity:.6}));
+      const tl=s("text",{x:X(st)+4,y:top+10});tl.textContent="Inicio programado";svg.append(tl)}
+    const d=pts.map((p,i)=>`${i?"L":"M"}${X(i).toFixed(1)},${Y(p.n).toFixed(1)}`).join("");
+    svg.append(s("path",{d:d+`L${X(pts.length-1)},${Y(0)}L${X(0)},${Y(0)}Z`,fill:"var(--s1)",opacity:.12}));
+    svg.append(s("path",{d,fill:"none",stroke:"var(--s1)","stroke-width":2,"stroke-linejoin":"round"}));
+    const pk=pts.reduce((a,p,i)=>p.n>pts[a].n?i:a,0);
+    svg.append(s("circle",{cx:X(pk),cy:Y(pts[pk].n),r:4,fill:"var(--s1)",stroke:"var(--surface)","stroke-width":2}));
+    const pl2=s("text",{x:X(pk),y:Y(pts[pk].n)-9,"text-anchor":"middle",class:"val"});pl2.textContent=`Máximo: ${fmt(pts[pk].n)}`;svg.append(pl2);
+    if(H2){const y0=top+H1+gap,bw=Math.max(1.5,iw/pts.length-1.5);
+      const cl=s("text",{x:pl,y:y0-6,class:"lbl"});cl.textContent="Mensajes en el chat";svg.append(cl);
+      svg.append(s("line",{x1:pl,x2:W-pr,y1:y0+H2,y2:y0+H2,stroke:"var(--axis)"}));
+      pts.forEach((p,i)=>{const c=cmap[p.t]||0;if(c){const bh=H2*c/cmx;svg.append(s("rect",{x:X(i)-bw/2,y:y0+H2-bh,width:bw,height:bh,rx:1.5,fill:"var(--s2)"}))}})}
+    const step=Math.ceil(pts.length/Math.max(2,Math.floor(iw/70)));
+    pts.forEach((p,i)=>{if(i%step===0){const tx=s("text",{x:X(i),y:H-6,"text-anchor":"middle"});tx.textContent=p.t;svg.append(tx)}});
+    const cross=s("line",{y1:top,y2:top+H1+(H2?gap+H2:0),stroke:"var(--axis)",opacity:0}),dot=s("circle",{r:4,fill:"var(--s1)",stroke:"var(--surface)","stroke-width":2,opacity:0});svg.append(cross,dot);
+    const hit=s("rect",{x:pl,y:top,width:iw,height:H-top-20,fill:"transparent"});
+    hit.addEventListener("pointermove",e=>{const b=svg.getBoundingClientRect(),x=(e.clientX-b.left)*W/b.width;const i=Math.max(0,Math.min(pts.length-1,Math.round((x-pl)/iw*(pts.length-1))));
+      cross.setAttribute("x1",X(i));cross.setAttribute("x2",X(i));cross.setAttribute("opacity",1);dot.setAttribute("cx",X(i));dot.setAttribute("cy",Y(pts[i].n));dot.setAttribute("opacity",1);
+      const m=pts[i].m;showTip(e,[`${pts[i].t}${m!=null?` (${m>=0?"+":""}${m} min)`:""}`,`${fmt(pts[i].n)} ${t("people")} conectadas`,...(H2?[`${fmt(cmap[pts[i].t]||0)} mensajes en el chat`]:[])])});
+    hit.addEventListener("pointerleave",()=>{hideTip();cross.setAttribute("opacity",0);dot.setAttribute("opacity",0)});svg.append(hit);
+    wrap.replaceChildren(svg)};
+  new ResizeObserver(draw).observe(wrap);return wrap}
+
+// ---- cumulative registrations by day before the event
+function cumLine(rc){
+  const wrap=h("div");const pts=rc.points;const draw=()=>{
+    const W=Math.max(280,wrap.clientWidth||460),H=210,pl=44,pr=14,pt=16,pb=26,iw=W-pl-pr,ih=H-pt-pb;
+    const mx=niceMax(Math.max(1,rc.total)),X=i=>pl+iw*i/Math.max(1,pts.length-1),Y=v=>pt+ih-ih*v/mx;
+    const svg=s("svg",{viewBox:`0 0 ${W} ${H}`,height:H,role:"img"});
+    for(const v of ticks(mx)){const y=Y(v);svg.append(s("line",{x1:pl,x2:W-pr,y1:y,y2:y,stroke:v?"var(--grid)":"var(--axis)"}));const tx=s("text",{x:pl-6,y:y+4,"text-anchor":"end"});tx.textContent=fmt(v);svg.append(tx)}
+    const wk=pts.findIndex(p=>p.d===-7);
+    if(wk>=0){svg.append(s("rect",{x:X(wk),y:pt,width:X(pts.length-1)-X(wk),height:ih,fill:"var(--s2)",opacity:.07}));
+      const l=s("text",{x:X(wk)+4,y:pt+11});l.textContent="última semana";svg.append(l)}
+    const d=pts.map((p,i)=>`${i?"L":"M"}${X(i).toFixed(1)},${Y(p.n).toFixed(1)}`).join("");
+    svg.append(s("path",{d,fill:"none",stroke:"var(--s1)","stroke-width":2,"stroke-linejoin":"round"}));
+    svg.append(s("circle",{cx:X(pts.length-1),cy:Y(pts[pts.length-1].n),r:4,fill:"var(--s1)",stroke:"var(--surface)","stroke-width":2}));
+    const ev=s("text",{x:X(pts.length-1)-6,y:Y(pts[pts.length-1].n)-9,"text-anchor":"end",class:"val"});ev.textContent=fmt(pts[pts.length-1].n);svg.append(ev);
+    [0,Math.floor((pts.length-1)/3),Math.floor(2*(pts.length-1)/3),pts.length-1].forEach(i=>{const tx=s("text",{x:X(i),y:H-6,"text-anchor":i===pts.length-1?"end":"middle"});tx.textContent=pts[i].d===0?"día del evento":`${-pts[i].d} días antes`;svg.append(tx)});
+    const cross=s("line",{y1:pt,y2:pt+ih,stroke:"var(--axis)",opacity:0});svg.append(cross);
+    const hit=s("rect",{x:pl,y:pt,width:iw,height:ih,fill:"transparent"});
+    hit.addEventListener("pointermove",e=>{const b=svg.getBoundingClientRect(),x=(e.clientX-b.left)*W/b.width;const i=Math.max(0,Math.min(pts.length-1,Math.round((x-pl)/iw*(pts.length-1))));
+      cross.setAttribute("x1",X(i));cross.setAttribute("x2",X(i));cross.setAttribute("opacity",1);
+      showTip(e,[pts[i].d===0?"Día del evento":`${-pts[i].d} días antes`,`${fmt(pts[i].n)} inscripciones acumuladas`])});
+    hit.addEventListener("pointerleave",()=>{hideTip();cross.setAttribute("opacity",0)});svg.append(hit);
+    wrap.replaceChildren(svg)};
+  new ResizeObserver(draw).observe(wrap);return wrap}
+
+// ---- several sessions on one time axis (minutes from scheduled start)
+function multiLine(series,{yfmt=v=>fmt(v),ylabel=""}={}){
+  const wrap=h("div");const draw=()=>{
+    const W=Math.max(300,wrap.clientWidth||600),H=240,pl=44,pr=14,pt=14,pb=30,iw=W-pl-pr,ih=H-pt-pb;
+    const xs=series.flatMap(sr=>sr.pts.map(p=>p.x)),x0=Math.min(...xs),x1=Math.max(...xs);
+    const mx=niceMax(Math.max(1,...series.flatMap(sr=>sr.pts.map(p=>p.y))));
+    const X=x=>pl+iw*(x-x0)/Math.max(1,x1-x0),Y=v=>pt+ih-ih*v/mx;
+    const svg=s("svg",{viewBox:`0 0 ${W} ${H}`,height:H,role:"img"});
+    for(const v of ticks(mx)){const y=Y(v);svg.append(s("line",{x1:pl,x2:W-pr,y1:y,y2:y,stroke:v?"var(--grid)":"var(--axis)"}));const tx=s("text",{x:pl-6,y:y+4,"text-anchor":"end"});tx.textContent=yfmt(v);svg.append(tx)}
+    if(x0<0){svg.append(s("line",{x1:X(0),x2:X(0),y1:pt,y2:pt+ih,stroke:"var(--ink2)","stroke-dasharray":"3 3",opacity:.6}));const tl=s("text",{x:X(0)+4,y:pt+10});tl.textContent="Inicio programado";svg.append(tl)}
+    for(let m=Math.ceil(x0/15)*15;m<=x1;m+=15){const tx=s("text",{x:X(m),y:H-10,"text-anchor":"middle"});tx.textContent=`${m>0?"+":""}${m}`;svg.append(tx)}
+    const xl=s("text",{x:W-pr,y:H-10,"text-anchor":"end"});xl.textContent="min";svg.append(xl);
+    series.forEach(sr=>{const d=sr.pts.map((p,i)=>`${i?"L":"M"}${X(p.x).toFixed(1)},${Y(p.y).toFixed(1)}`).join("");
+      svg.append(s("path",{d,fill:"none",stroke:sr.color,"stroke-width":2,"stroke-linejoin":"round",opacity:sr.dim?.45:1}))});
+    const cross=s("line",{y1:pt,y2:pt+ih,stroke:"var(--axis)",opacity:0});svg.append(cross);
+    const hit=s("rect",{x:pl,y:pt,width:iw,height:ih,fill:"transparent"});
+    hit.addEventListener("pointermove",e=>{const b=svg.getBoundingClientRect(),xv=x0+((e.clientX-b.left)*W/b.width-pl)/iw*(x1-x0);
+      cross.setAttribute("x1",X(xv));cross.setAttribute("x2",X(xv));cross.setAttribute("opacity",1);
+      const lines=series.map(sr=>{const q=sr.pts.reduce((a,p)=>Math.abs(p.x-xv)<Math.abs(a.x-xv)?p:a,sr.pts[0]);return `${sr.label}: ${yfmt(q.y)}`});
+      showTip(e,[`${Math.round(xv)>=0?"+":""}${Math.round(xv)} min desde el inicio`,...lines])});
+    hit.addEventListener("pointerleave",()=>{hideTip();cross.setAttribute("opacity",0)});svg.append(hit);
+    wrap.replaceChildren(svg)};
+  new ResizeObserver(draw).observe(wrap);return wrap}
+
+// ---- 100% stacked horizontal bars: one row per session, parts of a whole
+function stack100(rows,keys,{color,label,dark=[]}){
+  const wrap=h("div");const draw=()=>{
+    const W=Math.max(280,wrap.clientWidth||460),lw=Math.min(120,W*.22),rh=26,gap=10,H=rows.length*(rh+gap)+4,iw=W-lw-8;
+    const svg=s("svg",{viewBox:`0 0 ${W} ${H}`,height:H,role:"img"});
+    rows.forEach((r,i)=>{const y=i*(rh+gap)+2;const tot=keys.reduce((a,k)=>a+(r.parts[k]||0),0)||1;let x=lw;
+      const lb=s("text",{x:lw-8,y:y+rh/2+4,"text-anchor":"end",class:"lbl"});lb.textContent=r.label;svg.append(lb);
+      keys.forEach(k=>{const v=r.parts[k]||0;if(!v)return;const w=iw*v/tot;
+        const rc=s("rect",{x:x+1,y,width:Math.max(0,w-2),height:rh,rx:3,fill:color(k)});svg.append(rc);
+        if(w>34){const tx=s("text",{x:x+w/2,y:y+rh/2+4,"text-anchor":"middle",style:`fill:${dark.includes(k)?"#0b0b0b":"#fff"};font-weight:600`});tx.textContent=fmt(100*v/tot,0)+"%";svg.append(tx)}
+        const lines=[`${r.tip||r.label}`,`${label(k)}: ${fmt(100*v/tot,1)}%`];
+        rc.addEventListener("pointermove",e=>showTip(e,lines));rc.addEventListener("pointerleave",hideTip);x+=w})});
+    wrap.replaceChildren(svg)};
+  new ResizeObserver(draw).observe(wrap);return wrap}
+
+// ---- heatmap: rows x columns, sequential blue, value printed in each cell
+const SEQ=["#e8f1fc","#cde2fb","#b7d3f6","#9ec5f4","#86b6ef","#6da7ec","#5598e7","#3987e5","#2a78d6","#256abf","#1c5cab","#184f95"];
+function heatmap(rowLabels,colLabels,cells,{tip}={}){
+  const wrap=h("div");const draw=()=>{
+    const W=Math.max(300,wrap.clientWidth||600),lw=Math.min(130,W*.24),ch=26,top=34,cw=(W-lw-4)/colLabels.length,H=top+rowLabels.length*(ch+3);
+    const mx=Math.max(1,...cells.flat().filter(v=>v!=null));
+    const svg=s("svg",{viewBox:`0 0 ${W} ${H}`,height:H,role:"img"});
+    colLabels.forEach((c,j)=>{const tx=s("text",{x:lw+cw*j+cw/2,y:14,"text-anchor":"middle",class:"lbl"});tx.textContent=c.label;svg.append(tx);
+      const t2=s("text",{x:lw+cw*j+cw/2,y:27,"text-anchor":"middle"});t2.textContent=c.sub||"";svg.append(t2)});
+    rowLabels.forEach((r,i)=>{const y=top+i*(ch+3);const lb=s("text",{x:lw-8,y:y+ch/2+4,"text-anchor":"end",class:"lbl"});lb.textContent=r;svg.append(lb);
+      colLabels.forEach((c,j)=>{const v=cells[i][j];const k=v==null?-1:Math.min(SEQ.length-1,Math.round((SEQ.length-1)*v/mx));
+        const rc=s("rect",{x:lw+cw*j+1.5,y,width:cw-3,height:ch,rx:4,fill:k<0?"var(--grid)":SEQ[k],opacity:k<0?.5:1});svg.append(rc);
+        const tx=s("text",{x:lw+cw*j+cw/2,y:y+ch/2+4,"text-anchor":"middle",style:`fill:${k>=7?"#fff":"#0b0b0b"};font-weight:${k>=0?600:400}`});tx.textContent=v==null?"–":fmt(v,0)+"%";svg.append(tx);
+        if(tip){const lines=tip(i,j);rc.addEventListener("pointermove",e=>showTip(e,lines));rc.addEventListener("pointerleave",hideTip)}})});
+    wrap.replaceChildren(svg)};
+  new ResizeObserver(draw).observe(wrap);return wrap}
 
 // ring chart for shares of one whole; colours follow the category, not its rank
 function ring(rows,{center="",sub=""}={}){
@@ -251,14 +367,40 @@ function seriesView(sid){
     kpi(pct(avg(conv,e=>e.conversion_pct)),t("conv"),t("convN")),
     kpi(fmt(S.attended_2plus),t("twoplus")),
     kpi(pct(avg(E.filter(e=>e.demographics.women_pct!=null),e=>e.demographics.women_pct)),t("women")),
-    kpi(pct(avg(E.filter(e=>e.demographics.lac_pct!=null),e=>e.demographics.lac_pct)),t("lac")));
-  const cats=E.map((e,i)=>({label:`#${i+1}`,sub:dateStr(e.date),tipTitle:evTitle(e)}));
-  const c1=card(t("regVsPart"),t("regVsPartH"),legend([["var(--s1)",t("registered")],["var(--s2)",t("participants")]]),
+    kpi(pct(avg(E.filter(e=>e.demographics.lac_pct!=null),e=>e.demographics.lac_pct)),t("lac")),
+    kpi(fmt(avg(E.filter(e=>e.minutes_median!=null),e=>e.minutes_median))+" "+t("min"),"Tiempo conectado","mediana, promedio de las sesiones"),
+    kpi(fmt(E.reduce((a,e)=>a+(e.chat.questions||0),0)),"Preguntas en el chat","total de la serie"));
+  const cats=E.map((e,i)=>({label:`#${i+1}`,sub:dateStr(e.date),note:e.conversion_pct!=null?`${pct(e.conversion_pct)} asistió`:"",tipTitle:evTitle(e)}));
+  const c1=card(t("regVsPart"),"Debajo: qué parte de los inscritos se conectó",legend([["var(--s1)",t("registered")],["var(--s2)",t("participants")]]),
     vbars(cats,[{label:t("registered"),color:"var(--s1)",values:E.map(e=>e.registrations||0)},{label:t("participants"),color:"var(--s2)",values:E.map(e=>e.participants_total)}]));
   const c2=card(t("newRet"),t("newRetH"),legend([["var(--s1)",t("new")],["var(--s2)",t("ret")]]),
-    vbars(cats,[{label:t("new"),color:"var(--s1)",values:E.map(e=>(e.sm||{}).new||0)},{label:t("ret"),color:"var(--s2)",values:E.map(e=>(e.sm||{}).returning||0)}],{stacked:true}));
+    vbars(cats.map(c=>({...c,note:""})),[{label:t("new"),color:"var(--s1)",values:E.map(e=>(e.sm||{}).new||0)},{label:t("ret"),color:"var(--s2)",values:E.map(e=>(e.sm||{}).returning||0)}],{stacked:true}));
+  // audience curves on a common clock (minutes from scheduled start), last 6 sessions
+  const LS=E.slice(-6),slot=["var(--s1)","var(--s2)","var(--s3)","var(--s4)","var(--s5)","var(--s6)"];
+  const curves=LS.map((e,i)=>({label:`#${E.indexOf(e)+1} · ${dateStr(e.date)}`,color:slot[i],pts:(e.timeline||[]).filter(p=>p.m!=null).map(p=>({x:p.m,y:p.n}))})).filter(c=>c.pts.length);
+  const c3=curves.length?card("Cómo se mantiene la audiencia en cada sesión","Personas conectadas según los minutos desde el inicio programado",
+    legend(curves.map(c=>[c.color,c.label])),multiLine(curves)):null;
+  // loyalty: how many sessions each person attended
+  const fq=S.attendance_frequency||{};const fk=Object.keys(fq).map(Number).sort((a,b)=>a-b);
+  const c4=card("¿A cuántas sesiones asistió cada persona?",`${fmt(S.unique_attendees)} personas distintas en la serie`,
+    hbars(fk.map(k2=>({label:k2===1?"1 sesión":`${k2} sesiones`,n:fq[k2],tip:[k2===1?"1 sesión":`${k2} sesiones`,`${fmt(fq[k2])} ${t("people")} · ${fmt(100*fq[k2]/(S.unique_attendees||1),1)}%`]}))));
+  // composition by session (100% bars)
+  const rowsOf=key=>E.map((e,i)=>{const parts={};(e.demographics[key]||[]).forEach(x=>parts[x.key]=x.n);return {label:`#${i+1} · ${dateStr(e.date).replace(/ \d{4}$/,"")}`,tip:evTitle(e),parts}});
+  const SK=["publico","academia","privado","internacional","sociedad_civil","otros"];
+  const c5=card("Perfil por sector en cada sesión","Proporción de participantes con sector identificado",
+    legend(SK.map(k2=>[SECTOR_COLOR[k2],secName(k2)])),stack100(rowsOf("sectors"),SK,{color:k2=>SECTOR_COLOR[k2],label:secName,dark:["internacional"]}));
+  const c6=card("Participación por género en cada sesión",null,legend([["var(--s1)",t("F")],["var(--s2)",t("M")],["var(--s3)",t("O")]]),
+    stack100(rowsOf("gender"),["F","M","O"],{color:k2=>GENDER_COLOR[k2],label:k2=>t(k2)}));
+  // geography across sessions: top countries x sessions heatmap
+  const tot={};E.forEach(e=>(e.demographics.countries||[]).forEach(c=>tot[c.key]=(tot[c.key]||0)+c.n));
+  const topC=Object.keys(tot).sort((a,b)=>tot[b]-tot[a]).slice(0,12);
+  const cols2=E.map((e,i)=>({label:`#${i+1}`,sub:dateStr(e.date).replace(/ \d{4}$/,"")}));
+  const cells=topC.map(c=>E.map(e=>{const x=(e.demographics.countries||[]).find(y=>y.key===c);return x?x.pct:null}));
+  const c7=card("Países a lo largo de la serie","Porcentaje de los participantes de cada sesión (con país conocido); los 12 países con más participantes",
+    heatmap(topC.map(cname),cols2,cells,{tip:(r,c)=>{const e=E[c],x=(e.demographics.countries||[]).find(y=>y.key===topC[r]);return [`${cname(topC[r])} · #${c+1} ${dateStr(e.date)}`,x?`${fmt(x.n)} ${t("people")} · ${fmt(x.pct,1)}%`:"sin participantes"]}}));
   const cols=[["#",(e,i)=>i+1],[t("session"),e=>evLink(e)],["Tipo",e=>e.type||""],[t("date"),e=>dateStr(e.date)],[t("registered"),e=>fmt(e.registrations)],[t("participants"),e=>fmt(e.participants_total)],[t("conv"),e=>pct(e.conversion_pct)],[t("peak"),e=>fmt(e.peak_concurrent)],[t("median"),e=>fmt(e.minutes_median)],[t("countries"),e=>fmt(e.demographics.countries_n)],[t("women"),e=>pct(e.demographics.women_pct)],[t("ret"),e=>pct((e.sm||{}).returning_pct)],[t("questions"),e=>fmt(e.chat.questions)]];
-  return [head,k,h("div",{class:"grid"},c1,c2),h("div",{style:"height:16px"}),card(t("tableT"),null,table(cols,E,[1,2]))];
+  const full=x=>{if(x)x.style.gridColumn="1/-1";return x};
+  return [head,k,h("div",{class:"grid"},c1,c2,full(c3),c4,c6,full(c5),full(c7)),h("div",{style:"height:16px"}),card(t("tableT"),null,table(cols,E,[1,2]))];
 }
 
 function table(cols,rows,textCols){
@@ -327,7 +469,8 @@ function eventView(e){
       kpi(fmt(e.minutes_median)+" "+t("min"),t("median"),e.duration_min?`${t("of")} ${e.duration_min} ${t("min")}`:null),
       kpi(pct(e.stayed_half_pct),t("stayed"),null,P&&delta(e.stayed_half_pct,P.stayed_half_pct,"pp")),
       kpi(fmt(e.chat.questions),t("questions"),null,P&&delta(e.chat.questions,P.chat.questions)),
-      kpi(fmt(e.chat.people),"Personas que escribieron en el chat")),
+      kpi(fmt(e.chat.people),"Personas que escribieron en el chat"),
+      kpi(pct(e.late_pct),"Llegaron tarde","más de 10 min después del inicio programado",P&&delta(e.late_pct,P.late_pct,"pp"))),
     ...g("Perfil del público",
       kpi(pct(d.women_pct),t("women"),null,P&&delta(d.women_pct,pd.women_pct,"pp")),
       kpi(pct(ser.returning_pct),"Recurrente en la serie",idx>0?"asistió a un evento anterior de esta serie":"primer evento de la serie"),
@@ -343,25 +486,36 @@ function eventView(e){
   if(d.women_pct!=null&&d.sectors.length>1)facts.push(`Las mujeres representaron el ${pct(d.women_pct)} de la participación. Por sector destacaron ${(DATA.sectors[d.sectors[0].key]||{}).es_def} (${pct(d.sectors[0].pct)}) y ${(DATA.sectors[d.sectors[1].key]||{}).es_def} (${pct(d.sectors[1].pct)}).`);
   if(idx>0&&ser.returning!=null)facts.push(`${fmt(ser.returning)} personas del público (${pct(ser.returning_pct)}) ya habían asistido a un evento anterior de esta serie.`);
   if(gm.returning&&gm.returning!==ser.returning)facts.push(`Contando todos los eventos, ${fmt(gm.returning)} personas (${pct(gm.returning_pct)}) ya habían participado antes en alguna actividad.`);
+  if(e.registration_curve&&e.registration_curve.last_week_pct!=null)facts.push(`El ${pct(e.registration_curve.last_week_pct)} de las inscripciones llegó en la última semana y el ${pct(e.registration_curve.same_day_pct)} el mismo día del evento.`);
   if(e.chat.messages)facts.push(`En el chat se publicaron ${fmt(e.chat.messages)} mensajes de ${fmt(e.chat.people)} personas, con ${fmt(e.chat.questions)} preguntas.`);
   const factsBox=h("section",{class:"facts"},h("h2",{text:"Datos clave"}),h("ul",{},...facts.map(f=>h("li",{text:f}))));
   const top=d.countries.slice(0,10),rest=d.countries.slice(10);
   const crow=top.map(c=>({label:cname(c.key),n:c.pct,tip:[cname(c.key),`${fmt(c.n)} ${t("people")} · ${fmt(c.pct,1)}%`]}));
   if(rest.length){const n=rest.reduce((a,c)=>a+c.n,0),p=rest.reduce((a,c)=>a+c.pct,0);crow.push({label:`${t("others")} (${rest.length})`,n:p,tip:[`${t("others")}: ${rest.map(c=>cname(c.key)).join(", ")}`,`${fmt(n)} ${t("people")} · ${fmt(p,1)}%`]})}
   const pf=v=>fmt(v,0)+"%";
+  const full=x=>{if(x)x.style.gridColumn="1/-1";return x};
   const charts=[
-    card(t("over"),t("overH"),e.timeline.length?line(e.timeline):h("p",{class:"empty",text:"–"})),
-    card(t("byCountry"),t("byCountryH"),hbars(crow,{valueFmt:pf})),
-    card(t("bySector"),t("bySectorH"),ring(d.sectors.map(x=>({label:secName(x.key),n:x.n,count:x.n,pct:x.pct,color:SECTOR_COLOR[x.key]||"var(--muted)"})),
-      {center:fmt(d.sectors.reduce((a,x)=>a+x.n,0)),sub:"personas"})),
-    card(t("byGender"),null,ring(["F","M","O"].map(k=>d.gender.find(x=>x.key===k)).filter(Boolean).map(x=>({label:t(x.key),n:x.n,count:x.n,pct:x.pct,color:GENDER_COLOR[x.key]})),
-      {center:pct(d.women_pct),sub:"mujeres"})),
+    full(card(t("over"),"Público (sin organización ni panel), cada 2 minutos; las barras naranjas muestran los mensajes del chat",
+      e.timeline.length?timelineChart(e.timeline,e.chat_timeline):h("p",{class:"empty",text:"–"}))),
   ];
+  if(e.minutes_hist&&e.minutes_hist.length)charts.push(card("¿Cuánto tiempo se quedaron?",`Mediana: ${fmt(e.minutes_median)} min de ${fmt(e.duration_min)} min`,
+    vbars(e.minutes_hist.map(b=>({label:b.key.replace(" min",""),sub:"min",note:pct(b.pct),tipTitle:b.key})),[{label:t("people"),color:"var(--s1)",values:e.minutes_hist.map(b=>b.n)}])));
+  if(e.registration_curve&&e.registration_curve.points)charts.push(card("¿Cuándo se inscribieron?",
+    `${pct(e.registration_curve.last_week_pct)} en la última semana · ${pct(e.registration_curve.same_day_pct)} el mismo día`,cumLine(e.registration_curve)));
+  charts.push(card(t("byCountry"),t("byCountryH"),hbars(crow,{valueFmt:pf})));
   if(e.country_funnel&&e.country_funnel.length){
-    charts.push(card(t("funnel"),t("funnelH"),legend([["var(--s1)",t("registered")],["var(--s2)",t("attended")]]),
+    charts.push(card(t("funnel"),"Los 12 países con más inscripciones; a la derecha, qué parte de los inscritos se conectó",legend([["var(--s1)",t("registered")],["var(--s2)",t("attended")]]),
       hbars(e.country_funnel.slice(0,12).map(c=>({label:cname(c.key),reg:c.reg,att:c.att,tip:[cname(c.key),`${t("registered")}: ${fmt(c.reg)}`,`${t("attended")}: ${fmt(c.att)} (${pct(100*c.att/c.reg)})`]})),
-        {series:[{key:"reg",color:"var(--s1)",label:t("registered")},{key:"att",color:"var(--s2)",label:t("attended")}]})));
+        {series:[{key:"reg",color:"var(--s1)",label:t("registered")},{key:"att",color:"var(--s2)",label:t("attended")}],
+         valueFmt:(v,r,sr)=>sr.key==="att"?`${fmt(v)} · ${pct(100*v/(r.reg||1))}`:fmt(v)})));
   }
+  charts.push(card(t("bySector"),t("bySectorH"),ring(d.sectors.map(x=>({label:secName(x.key),n:x.n,count:x.n,pct:x.pct,color:SECTOR_COLOR[x.key]||"var(--muted)"})),
+      {center:fmt(d.sectors.reduce((a,x)=>a+x.n,0)),sub:"personas"})));
+  charts.push(card(t("byGender"),null,ring(["F","M","O"].map(k=>d.gender.find(x=>x.key===k)).filter(Boolean).map(x=>({label:t(x.key),n:x.n,count:x.n,pct:x.pct,color:GENDER_COLOR[x.key]})),
+      {center:pct(d.women_pct),sub:"mujeres"})));
+  if(e.connection&&e.connection.length){const CC=["var(--s1)","var(--s2)","var(--s3)","var(--s4)"];
+    charts.push(card("¿Cómo se conectaron?","Público, según el dispositivo informado por Webex",ring(e.connection.slice(0,4).map((x,i)=>({label:x.key.replace(" aplicación",""),n:x.n,count:x.n,pct:x.pct,color:CC[i]})),
+      {center:fmt(e.connection.reduce((a,x)=>a+x.n,0)),sub:"personas"})))}
   const txt=e.summary.es||e.summary.en;
   const art=h("div",{class:"article"});
   if(txt){art.innerHTML=md(txt)}else art.append(h("p",{class:"empty",text:t("noSummary")}));

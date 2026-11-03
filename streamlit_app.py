@@ -172,7 +172,34 @@ def save(stg, message):
     return pushed
 
 
+def _site_stamp() -> str:
+    """Changes whenever the dashboard code or any of the data it shows changes."""
+    import hashlib
+    import eventkit
+    parts = [eventkit.__file__]
+    pkg = Path(eventkit.__file__).parent
+    for f in [paths.config_file("dashboard.html"), pkg / "site.py", pkg / "stats.py",
+              paths.data_dir() / "events.json", paths.data_dir() / "attendance.csv",
+              paths.series_config_dir() / "catalog.yml"] + sorted(paths.events_dir().glob("*/meta.yml")) \
+            + sorted(paths.events_dir().glob("*/summary_*.md")):
+        if f.exists():
+            st_ = f.stat()
+            parts.append(f"{f}:{st_.st_mtime_ns}:{st_.st_size}")
+    return hashlib.sha1("|".join(parts).encode()).hexdigest()
+
+
+def ensure_fresh_site():
+    """Rebuild public/index.html if it was built by older code or from older data
+    (hosted apps keep their disk across code updates)."""
+    stamp_f = paths.public_dir() / ".build_stamp"
+    stamp = _site_stamp()
+    if not (paths.public_dir() / "index.html").exists() or not stamp_f.exists() or stamp_f.read_text() != stamp:
+        build_site()
+        stamp_f.write_text(_site_stamp())
+
+
 def dashboard_html(tab="global") -> str:
+    ensure_fresh_site()
     p = paths.public_dir() / "index.html"
     return embed_html(p.read_text(encoding="utf-8"), tab) if p.exists() else "<p>Sin datos aún.</p>"
 
