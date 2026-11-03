@@ -16,7 +16,7 @@ from pathlib import Path
 
 import streamlit as st
 
-st.set_page_config(page_title="Webinars · eventos", page_icon="📊", layout="wide")
+st.set_page_config(page_title="Webinars · eventos", page_icon="📊", layout="wide", initial_sidebar_state="collapsed")
 
 # ---------------------------------------------------------------- settings
 for key in ("ANTHROPIC_API_KEY", "EVENTKIT_SALT", "EVENTKIT_DATA_REPO", "EVENTKIT_DATA_TOKEN",
@@ -28,13 +28,61 @@ for key in ("ANTHROPIC_API_KEY", "EVENTKIT_SALT", "EVENTKIT_DATA_REPO", "EVENTKI
         pass
 
 
+PAGES = ["Subir evento", "Toda la serie", "Por evento"]
+
+CSS = """
+<style>
+/* ---- look & feel */
+:root{--ek-ink:#0b0b0b;--ek-ink2:#52514e;--ek-muted:#6f6d68;--ek-line:#e1e0d9;--ek-surface:#fcfcfb;--ek-accent:#2a78d6}
+html,body,[class*="st-"],button,input,textarea,select{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif!important}
+code,pre,kbd{font-family:ui-monospace,SFMono-Regular,Consolas,monospace!important}
+header[data-testid="stHeader"]{background:transparent;height:0}
+[data-testid="stToolbar"],[data-testid="stDecoration"],[data-testid="stStatusWidget"]{display:none!important}
+section[data-testid="stSidebar"],[data-testid="stSidebarCollapsedControl"],[data-testid="stExpandSidebarButton"]{display:none!important}
+.block-container{padding-top:1.4rem!important;max-width:1240px}
+h1{font-size:1.65rem!important;font-weight:650!important;letter-spacing:-.01em}
+h2,h3{font-weight:620!important;letter-spacing:-.005em}
+.ek-brand{display:flex;flex-direction:column;gap:2px;margin:0 0 2px}
+.ek-brand .k{font-size:12px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:var(--ek-muted)}
+.ek-brand .t{font-size:20px;font-weight:650;color:var(--ek-ink);line-height:1.25}
+.ek-meta{font-size:12.5px;color:var(--ek-muted);margin-top:-4px}
+.ek-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:6px 0 4px}
+.ek-step{border:1px solid var(--ek-line);background:var(--ek-surface);border-radius:12px;padding:10px 12px;font-size:13.5px}
+.ek-step b{display:block;font-size:12px;color:var(--ek-muted);font-weight:650;letter-spacing:.05em;text-transform:uppercase}
+.ek-check{display:grid;gap:6px;margin:6px 0 10px}
+.ek-check .row{display:grid;grid-template-columns:26px 230px 1fr;gap:8px;align-items:center;border:1px solid var(--ek-line);
+  background:var(--ek-surface);border-radius:10px;padding:8px 12px;font-size:14px}
+.ek-check .ok{color:#006300;font-weight:700}.ek-check .no{color:#b42318;font-weight:700}.ek-check .opt{color:var(--ek-muted)}
+.ek-check .f{color:var(--ek-ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+@media(max-width:640px){.ek-check .row{grid-template-columns:22px 1fr}.ek-check .f{grid-column:2}}
+[data-testid="stFileUploaderDropzone"]{padding:2.2rem 1rem!important;border:2px dashed #b7d3f6!important;background:#f3f8fe!important;border-radius:14px!important}
+[data-testid="stExpander"] details{border-radius:12px!important}
+div[data-testid="stSegmentedControl"] button{font-size:14.5px}
+
+/* ---- icon font fallback: some networks block Streamlit's icon font, which then
+   shows its internal names (e.g. "keyboard_arrow_down"). Hide those names and draw
+   plain symbols instead, so the app looks the same everywhere. */
+[data-testid="stIconMaterial"]{font-size:0!important;line-height:1!important;width:auto!important;min-width:0!important;overflow:visible!important}
+[data-testid="stIconMaterial"]::after{font-size:15px;font-family:system-ui,sans-serif;line-height:1;color:currentColor}
+[data-testid="stExpander"] summary [data-testid="stIconMaterial"]::after{content:"\\25B8"}
+[data-testid="stExpander"] details[open] summary [data-testid="stIconMaterial"]::after{content:"\\25BE"}
+[data-testid="stFileUploaderDeleteBtn"] [data-testid="stIconMaterial"]::after{content:"\\2715";font-size:13px}
+[data-testid="stFileUploaderFile"] [data-testid="stIconMaterial"]::after{content:"\\1F4C4";font-size:18px}
+[data-testid="stFileUploaderDropzone"] [data-testid="stIconMaterial"]::after{content:"\\2B06";font-size:22px}
+[data-testid="stAlert"] [data-testid="stIconMaterial"]::after{content:""}
+</style>
+"""
+st.html(CSS)
+
+
 def _password_gate():
     """If APP_PASSWORD is set, ask for it once per browser session before showing anything."""
     import hmac
     pw = os.environ.get("APP_PASSWORD")
     if not pw or st.session_state.get("auth_ok"):
         return
-    st.title("Webinars · acceso")
+    st.markdown('<div class="ek-brand"><span class="k">Acceso</span><span class="t">Plataforma de webinars</span></div>',
+                unsafe_allow_html=True)
     with st.form("login"):
         given = st.text_input("Contraseña", type="password")
         ok = st.form_submit_button("Entrar", type="primary")
@@ -163,27 +211,43 @@ if stg.kind == "git" and not os.environ.get("EVENTKIT_SALT"):
 
 cfg = SUM.series_config()
 
-# ---------------------------------------------------------------- sidebar
-with st.sidebar:
-    st.markdown(f"### {cfg.get('dashboard_title_es', 'Webinars')}")
-    st.caption(cfg.get("series_name_es", ""))
-    page = st.radio("Ir a", ["⬆️ Subir evento", "📊 Toda la serie", "🗓️ Por evento"],
-                    key="page", label_visibility="collapsed")
-    st.divider()
-    if st.button("🔄 Actualizar datos", use_container_width=True):
+# ---------------------------------------------------------------- header + navigation
+def go_to(name):
+    st.session_state["page"] = name
+    st.session_state["nav"] = name
+
+
+st.session_state.setdefault("page", PAGES[0])
+if not st.session_state.get("nav"):          # first visit, or the user clicked the active option off
+    st.session_state["nav"] = st.session_state["page"]
+h1, h2 = st.columns([5, 4], vertical_alignment="bottom")
+with h1:
+    st.markdown(f'<div class="ek-brand"><span class="k">{cfg.get("dashboard_title_es", "Webinars")}</span>'
+                f'<span class="t">{cfg.get("series_name_es", "")}</span></div>', unsafe_allow_html=True)
+with h2:
+    n1, n2 = st.columns([5, 1], vertical_alignment="bottom")
+    choice = n1.segmented_control("Sección", PAGES, key="nav", label_visibility="collapsed")
+    if choice and choice != st.session_state["page"]:
+        st.session_state["page"] = choice
+    if n2.button("↻", help="Actualizar: volver a leer los datos guardados", use_container_width=True):
         open_store(force=True)
         build_site()
         st.rerun()
-    st.caption(f"Datos: {stg.describe()}")
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        st.info("Notas en modo manual: se pegan en «Por evento».", icon="✍️")
+page = st.session_state["page"]
+mode = "notas automáticas (Claude)" if os.environ.get("ANTHROPIC_API_KEY") else "notas manuales"
+st.markdown(f'<div class="ek-meta">Datos: {stg.describe()} · {mode}</div>', unsafe_allow_html=True)
+st.divider()
 
 
 # ================================================================ upload
 def page_upload():
     st.title("Subir un evento")
-    st.write("Arrastra **todos** los archivos del webinar juntos (o un .zip). Los nombres no importan: "
-             "la plataforma reconoce cada archivo por su contenido.")
+    st.markdown(
+        '<div class="ek-steps">'
+        '<div class="ek-step"><b>1 · Descarga</b>Los informes de Webex y la presentación</div>'
+        '<div class="ek-step"><b>2 · Arrastra</b>Todos los archivos juntos (o un .zip), aquí abajo</div>'
+        '<div class="ek-step"><b>3 · Procesa</b>Revisa la lista y pulsa «Procesar evento»</div>'
+        '</div>', unsafe_allow_html=True)
     with st.expander("¿Qué archivos descargar de Webex?"):
         st.markdown(
             "- **Informe de participantes** (.csv/.xlsx) — *obligatorio*\n"
@@ -202,15 +266,20 @@ def page_upload():
         (tmp / f.name).write_bytes(f.getbuffer())
     found = cli.classify_files(cli._expand([tmp]))
 
+    import html as _h
     rows = []
-    for k in EXPECTED:
+    for k in EXPECTED + ["event_yml", "docx", "unknown"]:
         names = ", ".join(p.name for p in found.get(k, []))
-        icon = "✅" if names else ("❌" if k in REQUIRED else "➖")
-        rows.append({"": icon, "Archivo": KIND_LABEL[k], "Detectado": names or ("falta" if k in REQUIRED else "no incluido")})
-    for k in ("event_yml", "docx", "unknown"):
-        if found.get(k):
-            rows.append({"": "ℹ️", "Archivo": KIND_LABEL[k], "Detectado": ", ".join(p.name for p in found[k])})
-    st.dataframe(rows, hide_index=True, use_container_width=True)
+        if k not in EXPECTED and not names:
+            continue
+        if names:
+            mark, cls = ("✓", "ok") if k in EXPECTED or k == "event_yml" else ("·", "opt")
+        else:
+            mark, cls = ("✗", "no") if k in REQUIRED else ("–", "opt")
+        detail = names or ("falta (obligatorio)" if k in REQUIRED else "no incluido")
+        rows.append(f'<div class="row"><span class="{cls}">{mark}</span><span>{_h.escape(KIND_LABEL[k])}</span>'
+                    f'<span class="f" title="{_h.escape(detail)}">{_h.escape(detail)}</span></div>')
+    st.markdown('<div class="ek-check">' + "".join(rows) + "</div>", unsafe_allow_html=True)
 
     if not found.get("participants"):
         st.error("Falta el **informe de participantes** de Webex: sin él no se puede crear el evento.")
@@ -242,29 +311,29 @@ def page_upload():
         import yaml
         (tmp / "event.yml").write_text(yaml.safe_dump(overrides, allow_unicode=True), encoding="utf-8")
 
-    with st.status("Procesando el evento…", expanded=True) as status:
-        st.write("Sincronizando datos…")
-        open_store(force=True)
-        st.write("Calculando estadísticas y redactando la nota (1–3 minutos)…")
-        try:
-            eid = cli.process([tmp], force_summary=force, move_raw=False)
-        except SystemExit as e:
-            status.update(label="Error", state="error")
-            st.error(str(e))
-            return
-        except Exception as e:
-            status.update(label="Error", state="error")
-            st.exception(e)
-            return
-        st.write("Guardando archivos y actualizando el tablero…")
-        save(stg, f"Evento {eid}: archivos y resultados")
-        status.update(label=f"Evento {eid} procesado", state="complete")
+    bar = st.progress(0, text="Sincronizando datos…")
+    open_store(force=True)
+    bar.progress(25, text="Calculando estadísticas" + (" y redactando la nota (1–3 minutos)…"
+                                                        if os.environ.get("ANTHROPIC_API_KEY") else "…"))
+    try:
+        eid = cli.process([tmp], force_summary=force, move_raw=False)
+    except SystemExit as e:
+        bar.empty()
+        st.error(str(e))
+        return
+    except Exception as e:
+        bar.empty()
+        st.error(f"No se pudo procesar el evento: {e}")
+        return
+    bar.progress(80, text="Guardando archivos y actualizando el tablero…")
+    save(stg, f"Evento {eid}: archivos y resultados")
+    bar.progress(100, text=f"Evento {eid} procesado")
     shutil.rmtree(tmp, ignore_errors=True)
     st.session_state["up_n"] = st.session_state.get("up_n", 0) + 1
     st.session_state["event"] = eid
     st.success("Listo. Revisa el tablero del evento y la revisión automática de la nota.")
     st.button("Ver el tablero del evento →", type="primary",
-              on_click=lambda: st.session_state.update(page="🗓️ Por evento"))
+              on_click=go_to, args=("Por evento",))
 
 
 # ================================================================ series
@@ -366,7 +435,7 @@ def page_event():
         for f in raw:
             kind = KIND_LABEL.get(P.detect(f) or "unknown", "")
             c1, c2, c3 = st.columns([5, 3, 2])
-            c1.write(f"`{f.name}`")
+            c1.markdown(f'<div style="font-size:13.5px;word-break:break-all;padding-top:6px">{f.name}</div>', unsafe_allow_html=True)
             size = f.stat().st_size
             c2.caption(f"{kind} · " + (f"{size / 1e6:.1f} MB" if size >= 1e6 else f"{max(1, size // 1000)} KB"))
             c3.download_button("Descargar", f.read_bytes(), file_name=f.name, key=f"raw_{f.name}")
@@ -383,4 +452,4 @@ def page_event():
             st.rerun()
 
 
-{"⬆️ Subir evento": page_upload, "📊 Toda la serie": page_series, "🗓️ Por evento": page_event}[page]()
+{"Subir evento": page_upload, "Toda la serie": page_series, "Por evento": page_event}[page]()

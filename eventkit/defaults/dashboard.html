@@ -9,14 +9,14 @@
   color-scheme:light;
   --page:#f9f9f7;--surface:#fcfcfb;--ink:#0b0b0b;--ink2:#52514e;--muted:#6f6d68;
   --grid:#e1e0d9;--axis:#c3c2b7;--ring:rgba(11,11,11,.10);
-  --s1:#2a78d6;--s2:#eb6834;--accent:#2a78d6;--warnbg:#fff6e0;--warnink:#6b4a00;
+  --s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300;--accent:#2a78d6;--warnbg:#fff6e0;--warnink:#6b4a00;
 }
 @media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])){
   color-scheme:dark;--page:#0d0d0d;--surface:#1a1a19;--ink:#f0efec;--ink2:#c3c2b7;--muted:#9a988f;
-  --grid:#2c2c2a;--axis:#383835;--ring:rgba(255,255,255,.10);--s1:#3987e5;--s2:#d95926;--accent:#3987e5;
+  --grid:#2c2c2a;--axis:#383835;--ring:rgba(255,255,255,.10);--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300;--accent:#3987e5;
   --warnbg:#2b2310;--warnink:#f2d48a;}}
 :root[data-theme="dark"]{color-scheme:dark;--page:#0d0d0d;--surface:#1a1a19;--ink:#f0efec;--ink2:#c3c2b7;--muted:#9a988f;
-  --grid:#2c2c2a;--axis:#383835;--ring:rgba(255,255,255,.10);--s1:#3987e5;--s2:#d95926;--accent:#3987e5;--warnbg:#2b2310;--warnink:#f2d48a;}
+  --grid:#2c2c2a;--axis:#383835;--ring:rgba(255,255,255,.10);--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300;--accent:#3987e5;--warnbg:#2b2310;--warnink:#f2d48a;}
 *{box-sizing:border-box}
 body{margin:0;background:var(--page);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-variant-numeric:tabular-nums}
 header{padding:20px 16px 0;max-width:1200px;margin:0 auto;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between}
@@ -42,6 +42,14 @@ svg{display:block;width:100%;overflow:visible}
 svg text{fill:var(--muted);font-size:11.5px}
 svg .lbl{fill:var(--ink2)}
 svg .val{fill:var(--ink);font-weight:600}
+.ringwrap{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.ringwrap svg{width:180px;flex:0 0 180px}
+.ringleg{flex:1 1 200px;min-width:0;display:grid;gap:6px;font-size:13px}
+.ringleg .r{display:grid;grid-template-columns:12px 1fr auto auto;gap:8px;align-items:center;cursor:default}
+.ringleg i{width:12px;height:12px;border-radius:3px}
+.ringleg .p{font-weight:650;color:var(--ink)}
+.ringleg .c{color:var(--muted);font-size:12px;min-width:56px;text-align:right}
+.ringleg .r.dim{opacity:.45}
 .tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--page);padding:6px 9px;border-radius:8px;font-size:12.5px;line-height:1.35;opacity:0;transition:opacity .08s;z-index:10;max-width:260px}
 table{width:100%;border-collapse:collapse;font-size:13.5px}
 th,td{text-align:right;padding:7px 8px;border-bottom:1px solid var(--grid);white-space:nowrap}
@@ -92,7 +100,7 @@ summary{cursor:pointer;color:var(--ink2);font-size:13.5px}
 <script>
 const DATA = /*__DATA__*/null;
 const T = {
- es:{series:"Toda la serie",events:"Sesiones",unique:"Personas únicas",uniqueN:"asistentes distintos en la serie",regs:"Inscripciones",conv:"Tasa de asistencia",convN:"inscritos que se conectaron",twoplus:"Asistieron a 2+ sesiones",women:"Mujeres",lac:"América Latina y el Caribe",participants:"Participantes",participantsN:"conexiones únicas, incl. organización",attendees:"Público",peak:"Pico simultáneo",median:"Minutos conectados (mediana)",stayed:"Se quedaron más de la mitad",countries:"Países",questions:"Preguntas en el chat",regVsPart:"Inscritos y participantes por sesión",regVsPartH:"Personas únicas por sesión",newRet:"Público nuevo y recurrente",newRetH:"Recurrente = asistió a una sesión anterior de la serie",new:"Nuevo",ret:"Recurrente",tableT:"Resumen por sesión",date:"Fecha",session:"Sesión",speaker:"Ponente",over:"Personas conectadas durante la sesión",overH:"Público (sin organización ni panel), cada 2 minutos",byCountry:"Participantes por país",byCountryH:"Según el formulario de inscripción; % sobre participantes con país conocido",bySector:"Participantes por sector",bySectorH:"Clasificado a partir de la organización y el correo; editable en config/org_sectors.csv",byGender:"Participantes por género",funnel:"Inscritos y asistentes por país",funnelH:"Los 12 países con más inscripciones",registered:"Inscritos",attended:"Asistieron",summary:"Nota informativa",download:"Descargar Word",review:"Revisión automática (citas y nombres)",noSummary:"Aún no hay nota para esta sesión.",F:"Mujeres",M:"Hombres",O:"Otro / prefiere no decir",others:"Otros",usNote:n=>`Se descartaron ${n} respuestas «Estados Unidos» que Webex preselecciona en el formulario (país desconocido salvo que el correo indique otro país).`,inferredNote:n=>`País inferido desde el dominio del correo para ${n} personas.`,of:"de",min:"min",people:"personas"}
+ es:{series:"Toda la serie",events:"Sesiones",unique:"Personas únicas",uniqueN:"asistentes distintos en la serie",regs:"Inscripciones",conv:"Tasa de asistencia",convN:"inscritos que se conectaron",twoplus:"Asistieron a 2+ sesiones",women:"Mujeres",lac:"América Latina y el Caribe",participants:"Participantes",participantsN:"conexiones únicas, incl. organización",attendees:"Público",peak:"Pico simultáneo",median:"Minutos conectados (mediana)",stayed:"Se quedaron más de la mitad",countries:"Países",questions:"Preguntas en el chat",regVsPart:"Inscritos y participantes por sesión",regVsPartH:"Personas únicas por sesión",newRet:"Público nuevo y recurrente",newRetH:"Recurrente = asistió a una sesión anterior de la serie",new:"Nuevo",ret:"Recurrente",tableT:"Resumen por sesión",date:"Fecha",session:"Sesión",speaker:"Ponente",over:"Personas conectadas durante la sesión",overH:"Público (sin organización ni panel), cada 2 minutos",byCountry:"Participantes por país",byCountryH:"Según el formulario de inscripción; % sobre participantes con país conocido",bySector:"Participantes por sector",bySectorH:"Clasificado a partir de la organización y el correo de cada persona",byGender:"Participantes por género",funnel:"Inscritos y asistentes por país",funnelH:"Los 12 países con más inscripciones",registered:"Inscritos",attended:"Asistieron",summary:"Nota informativa",download:"Descargar Word",review:"Revisión automática (citas y nombres)",noSummary:"Aún no hay nota para esta sesión.",F:"Mujeres",M:"Hombres",O:"Otro / prefiere no decir",others:"Otros",usNote:n=>`Se descartaron ${n} respuestas «Estados Unidos» que Webex preselecciona en el formulario (país desconocido salvo que el correo indique otro país).`,inferredNote:n=>`País inferido desde el dominio del correo para ${n} personas.`,of:"de",min:"min",people:"personas"}
 };
 const lang = "es";
 const EMBED = !!window.EK_EMBED;
@@ -157,6 +165,28 @@ function vbars(cats,series,{stacked=false}={}){
 function niceStep(v){const p=Math.pow(10,Math.floor(Math.log10(v)));for(const m of [1,2,2.5,5,10])if(m*p>=v)return m*p;return v}
 function niceMax(v){const st=niceStep(v/4);return Math.ceil(v/st)*st}
 function ticks(mx){const st=niceStep(mx/4);const out=[];for(let v=0;v<=mx+1e-9;v+=st)out.push(v);return out}
+
+// ring chart for shares of one whole; colours follow the category, not its rank
+function ring(rows,{center="",sub=""}={}){
+  const wrap=h("div",{class:"ringwrap"});const R0=86,TH=24,C=90,tot=rows.reduce((a,r)=>a+r.n,0)||1;
+  const svg=s("svg",{viewBox:"0 0 180 180",role:"img"});let a0=-Math.PI/2;const segs=[];
+  const leg=h("div",{class:"ringleg"});
+  rows.forEach((r,i)=>{const frac=r.n/tot,a1=a0+frac*2*Math.PI,large=frac>.5?1:0,ro=R0,ri=R0-TH;
+    const pt=(rad,a)=>`${(C+rad*Math.cos(a)).toFixed(2)},${(C+rad*Math.sin(a)).toFixed(2)}`;
+    const end=frac>=.9999?a1-1e-4:a1;
+    const d=`M${pt(ro,a0)}A${ro},${ro} 0 ${large} 1 ${pt(ro,end)}L${pt(ri,end)}A${ri},${ri} 0 ${large} 0 ${pt(ri,a0)}Z`;
+    const seg=s("path",{d,fill:r.color,stroke:"var(--surface)","stroke-width":2,"stroke-linejoin":"round"});
+    const lines=[r.label,`${fmt(r.pct,1)}% · ${fmt(r.count)} ${t("people")}`];
+    const row=h("div",{class:"r"},h("i",{style:`background:${r.color}`}),h("span",{text:r.label}),h("span",{class:"p",text:fmt(r.pct,0)+"%"}),h("span",{class:"c",text:fmt(r.count)}));
+    const on=e=>{showTip(e,lines);segs.forEach((g,j)=>g.setAttribute("opacity",j===i?1:.35));leg.querySelectorAll(".r").forEach((x,j)=>x.classList.toggle("dim",j!==i))};
+    const off=()=>{hideTip();segs.forEach(g=>g.setAttribute("opacity",1));leg.querySelectorAll(".r").forEach(x=>x.classList.remove("dim"))};
+    seg.addEventListener("pointermove",on);seg.addEventListener("pointerleave",off);row.addEventListener("pointermove",on);row.addEventListener("pointerleave",off);
+    svg.append(seg);segs.push(seg);leg.append(row);a0=a1});
+  const c1=s("text",{x:C,y:C+2,"text-anchor":"middle",class:"val",style:"font-size:22px"});c1.textContent=center;
+  const c2=s("text",{x:C,y:C+20,"text-anchor":"middle",style:"font-size:11px"});c2.textContent=sub;svg.append(c1,c2);
+  wrap.append(svg,leg);return wrap}
+const SECTOR_COLOR={publico:"var(--s1)",academia:"var(--s2)",privado:"var(--s3)",internacional:"var(--s4)",sociedad_civil:"var(--s5)",otros:"var(--s6)"};
+const GENDER_COLOR={F:"var(--s1)",M:"var(--s2)",O:"var(--s3)"};
 
 function line(points){
   const wrap=h("div");const draw=()=>{
@@ -263,8 +293,10 @@ function eventView(e){
   const charts=[
     card(t("over"),t("overH"),e.timeline.length?line(e.timeline):h("p",{class:"empty",text:"–"})),
     card(t("byCountry"),t("byCountryH"),hbars(crow,{valueFmt:pf})),
-    card(t("bySector"),t("bySectorH"),hbars(d.sectors.map(x=>({label:secName(x.key),n:x.pct,tip:[secName(x.key),`${fmt(x.n)} ${t("people")} · ${fmt(x.pct,1)}%`]})),{valueFmt:pf})),
-    card(t("byGender"),null,hbars(d.gender.map(x=>({label:t(x.key),n:x.pct,tip:[t(x.key),`${fmt(x.n)} ${t("people")} · ${fmt(x.pct,1)}%`]})),{valueFmt:pf,max:100})),
+    card(t("bySector"),t("bySectorH"),ring(d.sectors.map(x=>({label:secName(x.key),n:x.n,count:x.n,pct:x.pct,color:SECTOR_COLOR[x.key]||"var(--muted)"})),
+      {center:fmt(d.sectors.reduce((a,x)=>a+x.n,0)),sub:"personas"})),
+    card(t("byGender"),null,ring(["F","M","O"].map(k=>d.gender.find(x=>x.key===k)).filter(Boolean).map(x=>({label:t(x.key),n:x.n,count:x.n,pct:x.pct,color:GENDER_COLOR[x.key]})),
+      {center:pct(d.women_pct),sub:"mujeres"})),
   ];
   if(e.country_funnel&&e.country_funnel.length){
     charts.push(card(t("funnel"),t("funnelH"),legend([["var(--s1)",t("registered")],["var(--s2)",t("attended")]]),
@@ -281,7 +313,7 @@ function eventView(e){
 }
 
 function render(){
-  if(EMBED)document.body.classList.add("embed");
+  if(EMBED){document.body.classList.add("embed");document.documentElement.setAttribute("data-theme","light");}
   document.documentElement.lang=lang;
   const C=DATA.config||{};
   $("#title").textContent=(lang==="es"?C.dashboard_title_es:C.dashboard_title_en)||"Webinars";

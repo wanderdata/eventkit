@@ -93,8 +93,10 @@ def test_app_starts_and_shows_pages(tmp_path, monkeypatch):
     at = AppTest.from_file(str(app), default_timeout=60).run()
     assert not at.exception
     assert any("Subir un evento" in t.value for t in at.title)
-    for page in ("📊 Toda la serie", "🗓️ Por evento"):
-        at.sidebar.radio[0].set_value(page).run()
+    for page in ("Toda la serie", "Por evento"):
+        at.session_state["page"] = page
+        at.session_state["nav"] = page
+        at.run()
         assert not at.exception
 
 
