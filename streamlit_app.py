@@ -28,7 +28,7 @@ for key in ("ANTHROPIC_API_KEY", "EVENTKIT_SALT", "EVENTKIT_DATA_REPO", "EVENTKI
         pass
 
 
-PAGES = ["Subir evento", "Toda la serie", "Por evento"]
+PAGES = ["Subir evento", "Todos los eventos", "Por serie", "Por evento", "Administrar"]
 
 CSS = """
 <style>
@@ -36,7 +36,7 @@ CSS = """
 :root{--ek-ink:#0b0b0b;--ek-ink2:#52514e;--ek-muted:#6f6d68;--ek-line:#e1e0d9;--ek-surface:#fcfcfb;--ek-accent:#2a78d6}
 html,body,[class*="st-"],button,input,textarea,select{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif!important}
 code,pre,kbd{font-family:ui-monospace,SFMono-Regular,Consolas,monospace!important}
-header[data-testid="stHeader"]{background:transparent;height:0}
+header[data-testid="stHeader"]{display:none!important}
 [data-testid="stToolbar"],[data-testid="stDecoration"],[data-testid="stStatusWidget"]{display:none!important}
 section[data-testid="stSidebar"],[data-testid="stSidebarCollapsedControl"],[data-testid="stExpandSidebarButton"]{display:none!important}
 .block-container{padding-top:1.4rem!important;max-width:1240px}
@@ -97,6 +97,7 @@ def _password_gate():
 _password_gate()
 
 from eventkit import cli, paths, store as S, summarize as SUM  # noqa: E402  (after env is set)
+from eventkit import catalog as CAT  # noqa: E402
 from eventkit import normalize as N  # noqa: E402
 from eventkit import parsers as P  # noqa: E402
 from eventkit.docx_out import md_to_docx  # noqa: E402
@@ -134,6 +135,8 @@ def open_store(force=False):
         N.sector_rules.cache_clear()
         N._countries.cache_clear()
     paths.set_home(stg.root)
+    if CAT.ensure():   # first run with series: file existing events under the first series
+        save(stg, "Clasificar eventos en series y tipos")
     _check_salt(stg)
     if not (paths.public_dir() / "index.html").exists():
         build_site()
@@ -169,7 +172,7 @@ def save(stg, message):
     return pushed
 
 
-def dashboard_html(tab="series") -> str:
+def dashboard_html(tab="global") -> str:
     p = paths.public_dir() / "index.html"
     return embed_html(p.read_text(encoding="utf-8"), tab) if p.exists() else "<p>Sin datos aún.</p>"
 
@@ -194,6 +197,33 @@ def event_label(e):
     return f"{e.get('date', e['id'])} · {e.get('title_es') or e.get('webinar_name', '')}"
 
 
+def events_by_series() -> dict:
+    """{series_id: [events newest first]} using the current classification."""
+    out = {}
+    for e in events():
+        sid = CAT.event_meta(e["id"]).get("series") or e.get("series")
+        out.setdefault(sid, []).append(e)
+    return out
+
+
+def series_label(sid):
+    s = CAT.get_series(sid)
+    return s.get("name_es") or sid
+
+
+def pick_series(key, with_counts=True, only_with_events=True):
+    groups = events_by_series()
+    opts = [s["id"] for s in CAT.series_list() if (not only_with_events or s["id"] in groups)]
+    if not opts:
+        return None
+    cur = st.session_state.get("series_sel")
+    idx = opts.index(cur) if cur in opts else 0
+    sid = st.selectbox("Serie", opts, index=idx, key=key,
+                       format_func=lambda i: series_label(i) + (f"  ({len(groups.get(i, []))})" if with_counts else ""))
+    st.session_state["series_sel"] = sid
+    return sid
+
+
 def strip_comments(md: str) -> str:
     """Hide the auto-generated markers in the article."""
     return re.sub(r"<!--.*?-->\n?", "", md, flags=re.S)
@@ -209,7 +239,7 @@ if stg.kind == "git" and not os.environ.get("EVENTKIT_SALT"):
     st.error("Falta el secreto EVENTKIT_SALT. Agrégalo en la configuración de la app (Secrets) antes de usarla.")
     st.stop()
 
-cfg = SUM.series_config()
+cat = CAT.load()
 
 # ---------------------------------------------------------------- header + navigation
 def go_to(name):
@@ -220,12 +250,15 @@ def go_to(name):
 st.session_state.setdefault("page", PAGES[0])
 if not st.session_state.get("nav"):          # first visit, or the user clicked the active option off
     st.session_state["nav"] = st.session_state["page"]
-h1, h2 = st.columns([5, 4], vertical_alignment="bottom")
+h1, h2 = st.columns([3, 5], vertical_alignment="bottom")
 with h1:
-    st.markdown(f'<div class="ek-brand"><span class="k">{cfg.get("dashboard_title_es", "Webinars")}</span>'
-                f'<span class="t">{cfg.get("series_name_es", "")}</span></div>', unsafe_allow_html=True)
+    n_ev = len(S.load_events())
+    n_se = len(events_by_series())
+    st.markdown(f'<div class="ek-brand"><span class="k">CEPAL · {n_ev} {"evento" if n_ev == 1 else "eventos"} en '
+                f'{n_se} {"serie" if n_se == 1 else "series"}</span>'
+                f'<span class="t">{cat["platform_title_es"]}</span></div>', unsafe_allow_html=True)
 with h2:
-    n1, n2 = st.columns([5, 1], vertical_alignment="bottom")
+    n1, n2 = st.columns([8, 1], vertical_alignment="bottom")
     choice = n1.segmented_control("Sección", PAGES, key="nav", label_visibility="collapsed")
     if choice and choice != st.session_state["page"]:
         st.session_state["page"] = choice
@@ -286,12 +319,39 @@ def page_upload():
         return
 
     _, meta, _ = P.read_participants(found["participants"][0])
-    event_id = meta.planned_start.strftime("%Y-%m-%d")
-    exists = (paths.events_dir() / event_id).exists()
-    st.info(f"**Evento detectado:** {event_id} — {meta.webinar_name}")
-    if exists:
-        st.warning("Ya existe un evento con esta fecha. Se actualizarán sus datos; la nota existente se conserva "
-                   "salvo que marques «Reescribir la nota».")
+    date_id = meta.planned_start.strftime("%Y-%m-%d")
+    st.info(f"**Evento detectado:** {date_id} — {meta.webinar_name}")
+
+    # ---- classification
+    st.markdown("**¿A qué serie y tipo pertenece?**")
+    NEW = "__nueva__"
+    groups = events_by_series()
+    sids = [s["id"] for s in CAT.series_list()]
+    last = st.session_state.get("last_series") or next(iter(groups), sids[0])
+    c1, c2 = st.columns(2)
+    sid = c1.selectbox("Serie", sids + [NEW], index=(sids + [NEW]).index(last) if last in sids else 0,
+                       format_func=lambda i: "➕ Nueva serie…" if i == NEW else series_label(i), key="up_series")
+    types = CAT.load()["types"]
+    etype = c2.selectbox("Tipo de evento", types + [NEW], index=0,
+                         format_func=lambda t: "➕ Otro tipo…" if t == NEW else t, key="up_type")
+    new_series = {}
+    if sid == NEW:
+        with st.container(border=True):
+            a1, a2 = st.columns(2)
+            new_series["name_es"] = a1.text_input("Nombre de la serie (español)", key="ns_es")
+            new_series["name_en"] = a2.text_input("Nombre de la serie (inglés)", key="ns_en")
+            new_series["organizers_es"] = a1.text_input("Organizadores (español)", value="CEPAL", key="ns_org_es")
+            new_series["organizers_en"] = a2.text_input("Organizadores (inglés)", value="ECLAC", key="ns_org_en")
+    new_type = st.text_input("Nombre del nuevo tipo", key="nt") if etype == NEW else ""
+
+    if sid != NEW:
+        same = CAT.event_meta(date_id).get("series")
+        if (paths.events_dir() / date_id).exists():
+            if same == sid:
+                st.warning("Este evento ya existe en esta serie: se actualizarán sus datos y la nota existente se "
+                           "conserva salvo que marques «Reescribir la nota».")
+            else:
+                st.caption(f"Ya hay un evento del {date_id} en otra serie; este se guardará por separado.")
 
     with st.form("procesar"):
         st.markdown("**Datos opcionales** (si los dejas vacíos se detectan de los archivos)")
@@ -304,12 +364,24 @@ def page_upload():
         go = st.form_submit_button("Procesar evento", type="primary", use_container_width=True)
     if not go:
         return
+    if sid == NEW and not new_series.get("name_es", "").strip():
+        st.error("Escribe el nombre de la nueva serie.")
+        return
+    if etype == NEW and not new_type.strip():
+        st.error("Escribe el nombre del nuevo tipo de evento.")
+        return
+    if sid == NEW:
+        sid = CAT.add_series(**{k: v.strip() for k, v in new_series.items()})
+    if etype == NEW:
+        etype = new_type.strip()
+        CAT.add_type(etype)
+    st.session_state["last_series"] = sid
 
     overrides = {k: v for k, v in dict(title_es=title_es, title_en=title_en, speaker=speaker,
                                        speaker_affiliation=affiliation).items() if v.strip()}
-    if overrides:
-        import yaml
-        (tmp / "event.yml").write_text(yaml.safe_dump(overrides, allow_unicode=True), encoding="utf-8")
+    overrides.update(series=sid, type=etype)
+    import yaml
+    (tmp / "event.yml").write_text(yaml.safe_dump(overrides, allow_unicode=True), encoding="utf-8")
 
     bar = st.progress(0, text="Sincronizando datos…")
     open_store(force=True)
@@ -331,6 +403,7 @@ def page_upload():
     shutil.rmtree(tmp, ignore_errors=True)
     st.session_state["up_n"] = st.session_state.get("up_n", 0) + 1
     st.session_state["event"] = eid
+    st.session_state["series_sel"] = sid
     st.success("Listo. Revisa el tablero del evento y la revisión automática de la nota.")
     st.button("Ver el tablero del evento →", type="primary",
               on_click=go_to, args=("Por evento",))
@@ -365,18 +438,31 @@ def mailing_buttons(scope: str, event_ids: tuple | None = None):
     c2.download_button("Solo correos · texto", txt, file_name=f"correos_{scope}_{tag}.txt", mime="text/plain",
                        use_container_width=True, key=f"mt_{scope}_{tag}",
                        help="Un correo por línea, para pegar en Outlook (CCO) o en una herramienta de envíos")
-    st.caption("Contiene datos personales: úsala solo para comunicaciones de la serie y no la compartas fuera del equipo.")
+    st.caption("Contiene datos personales: úsala solo para comunicaciones de la CEPAL y no la compartas fuera del equipo.")
 
 
-def page_series():
-    st.title("Toda la serie")
+def page_global():
+    st.title("Todos los eventos")
     if not S.load_events():
         st.info("Todavía no hay eventos. Usa «Subir evento».")
         return
     with st.container(border=True):
-        st.markdown("**Exportar correos de toda la serie** (sin duplicados)")
-        mailing_buttons("serie")
-    show_dashboard("series", 1250)
+        st.markdown("**Exportar correos de todos los eventos** (sin duplicados)")
+        mailing_buttons("todos")
+    show_dashboard("global", 1600)
+
+
+def page_series():
+    st.title("Por serie")
+    sid = pick_series("sel_series_page")
+    if not sid:
+        st.info("Todavía no hay eventos. Usa «Subir evento».")
+        return
+    ids = tuple(e["id"] for e in events_by_series().get(sid, []))
+    with st.container(border=True):
+        st.markdown("**Exportar correos de esta serie** (sin duplicados)")
+        mailing_buttons(f"serie_{sid}", ids)
+    show_dashboard(f"series:{sid}", 1250)
 
 
 # ================================================================ event
@@ -403,7 +489,7 @@ def manual_article(eid, edir, lang, md, dx):
         md_to_docx(md, dx)
         if lang == "es":  # refresh the automatic quote/name check against the transcript
             try:
-                cli.process([edir / "raw"], move_raw=False)
+                cli.process([edir / "raw"], move_raw=False, event_id=eid)
             except Exception:
                 pass
         save(stg, f"Evento {eid}: nota ({lang}) agregada")
@@ -412,13 +498,19 @@ def manual_article(eid, edir, lang, md, dx):
 
 
 def page_event():
-    evs = events()
-    if not evs:
+    if not events():
         st.info("Todavía no hay eventos. Usa «Subir evento».")
         return
+    cur = st.session_state.get("event")
+    if cur and CAT.event_meta(cur).get("series"):     # coming from an upload: open its series
+        st.session_state.setdefault("series_sel", CAT.event_meta(cur)["series"])
+    c1, c2 = st.columns(2)
+    with c1:
+        sid = pick_series("sel_series_event")
+    evs = events_by_series().get(sid, [])
     ids = [e["id"] for e in evs]
-    default = ids.index(st.session_state["event"]) if st.session_state.get("event") in ids else 0
-    eid = st.selectbox("Evento", ids, index=default, format_func=lambda i: event_label(next(e for e in evs if e["id"] == i)))
+    default = ids.index(cur) if cur in ids else 0
+    eid = c2.selectbox("Evento", ids, index=default, format_func=lambda i: event_label(next(e for e in evs if e["id"] == i)))
     st.session_state["event"] = eid
     edir = paths.events_dir() / eid
 
@@ -489,4 +581,103 @@ def page_event():
             st.rerun()
 
 
-{"Subir evento": page_upload, "Toda la serie": page_series, "Por evento": page_event}[page]()
+# ================================================================ admin
+def page_admin():
+    st.title("Administrar")
+    t1, t2, t3, t4 = st.tabs(["Series", "Mover un evento", "Tipos de evento", "Plataforma"])
+    groups = events_by_series()
+
+    with t1:
+        rows = [{"Serie": s["name_es"], "Organizadores": s.get("organizers_es", ""),
+                 "Eventos": len(groups.get(s["id"], []))} for s in CAT.series_list()]
+        import html as _h
+        st.markdown('<div class="ek-check">' + "".join(
+            f'<div class="row" style="grid-template-columns:1fr 220px 80px"><span>{_h.escape(r["Serie"])}</span>'
+            f'<span class="f">{_h.escape(r["Organizadores"])}</span><span class="f">{r["Eventos"]} {"evento" if r["Eventos"] == 1 else "eventos"}</span></div>'
+            for r in rows) + "</div>", unsafe_allow_html=True)
+
+        with st.expander("Crear una serie nueva"):
+            with st.form("new_series"):
+                a1, a2 = st.columns(2)
+                n_es = a1.text_input("Nombre (español)")
+                n_en = a2.text_input("Nombre (inglés)")
+                o_es = a1.text_input("Organizadores (español)", value="CEPAL")
+                o_en = a2.text_input("Organizadores (inglés)", value="ECLAC")
+                if st.form_submit_button("Crear serie", type="primary"):
+                    if not n_es.strip():
+                        st.error("Escribe al menos el nombre en español.")
+                    else:
+                        CAT.add_series(n_es, n_en, o_es, o_en)
+                        save(stg, f"Serie nueva: {n_es.strip()}")
+                        st.success("Serie creada.")
+                        st.rerun()
+
+        st.markdown("**Editar una serie**")
+        sid = st.selectbox("Serie a editar", [x["id"] for x in CAT.series_list()], format_func=series_label, key="adm_s")
+        cur = CAT.get_series(sid)
+        with st.form(f"edit_{sid}"):
+            a1, a2 = st.columns(2)
+            n_es = a1.text_input("Nombre (español)", cur.get("name_es", ""))
+            n_en = a2.text_input("Nombre (inglés)", cur.get("name_en", ""))
+            o_es = a1.text_input("Organizadores (español)", cur.get("organizers_es", ""))
+            o_en = a2.text_input("Organizadores (inglés)", cur.get("organizers_en", ""))
+            sp = CAT.style_example_path(sid)
+            own = sp.name == f"{sid}.md"
+            ex = st.text_area("Nota de ejemplo para el estilo de redacción (opcional)",
+                              sp.read_text(encoding="utf-8") if (sp.exists() and own) else "", height=200,
+                              help="Pega una nota ya publicada de esta serie. Se usa como modelo al redactar las "
+                                   "nuevas notas. Si la dejas vacía se usa el ejemplo general.")
+            if st.form_submit_button("Guardar cambios", type="primary"):
+                CAT.update_series(sid, name_es=n_es.strip() or cur.get("name_es"), name_en=n_en.strip(),
+                                  organizers_es=o_es.strip(), organizers_en=o_en.strip())
+                if ex.strip():
+                    CAT.save_style_example(sid, ex)
+                save(stg, f"Serie editada: {n_es.strip()}")
+                st.success("Guardado.")
+                st.rerun()
+
+    with t2:
+        evs = events()
+        if not evs:
+            st.info("Todavía no hay eventos.")
+        else:
+            lab = {e["id"]: f"{event_label(e)}  —  {series_label(CAT.event_meta(e['id']).get('series'))}" for e in evs}
+            eid = st.selectbox("Evento", list(lab), format_func=lab.get, key="mv_e")
+            m = CAT.event_meta(eid)
+            sids = [x["id"] for x in CAT.series_list()]
+            types = CAT.load()["types"]
+            b1, b2 = st.columns(2)
+            new_sid = b1.selectbox("Serie", sids, index=sids.index(m.get("series")) if m.get("series") in sids else 0,
+                                   format_func=series_label, key=f"mv_s_{eid}")
+            ty = m.get("type") if m.get("type") in types else types[0]
+            new_ty = b2.selectbox("Tipo", types, index=types.index(ty), key=f"mv_t_{eid}")
+            if st.button("Guardar clasificación", type="primary", key="mv_go",
+                         disabled=(new_sid == m.get("series") and new_ty == m.get("type"))):
+                CAT.set_event_meta(eid, series=new_sid, type=new_ty)
+                save(stg, f"Evento {eid}: movido a {new_sid} ({new_ty})")
+                st.success("Evento reclasificado. Los tableros ya lo muestran en su nueva serie.")
+                st.rerun()
+
+    with t3:
+        types = CAT.load()["types"]
+        st.write(", ".join(types))
+        with st.form("new_type"):
+            nt = st.text_input("Agregar un tipo de evento")
+            if st.form_submit_button("Agregar") and nt.strip():
+                CAT.add_type(nt.strip())
+                save(stg, f"Tipo de evento nuevo: {nt.strip()}")
+                st.rerun()
+
+    with t4:
+        with st.form("platform"):
+            c = CAT.load()
+            title = st.text_input("Título de la plataforma", c["platform_title_es"])
+            if st.form_submit_button("Guardar", type="primary"):
+                c["platform_title_es"] = title.strip() or c["platform_title_es"]
+                CAT.save(c)
+                save(stg, "Título de la plataforma")
+                st.rerun()
+
+
+{"Subir evento": page_upload, "Todos los eventos": page_global, "Por serie": page_series,
+ "Por evento": page_event, "Administrar": page_admin}[page]()

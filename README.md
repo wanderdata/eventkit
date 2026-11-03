@@ -15,7 +15,8 @@ git.cepal.org/.../<series-project>      ← one private project per series: inbo
 
 ## Web app (upload page + dashboards)
 
-`streamlit_app.py` is a Spanish web app on top of the same code:
+`streamlit_app.py` is a Spanish web app on top of the same code. Events belong to a **series** and have a **type**
+(`config/catalog.yml`, per event `events/<id>/meta.yml`); dashboards exist for all events, per series and per event:
 **Subir evento** (drag all files of one event), **Toda la serie** (series dashboard),
 **Por evento** (dropdown → KPI panel, charts, article with editing and Word downloads,
 automatic review, the event's original files). Event data is kept in a separate private

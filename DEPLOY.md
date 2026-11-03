@@ -1,6 +1,12 @@
 # Deploying the web app (Streamlit Community Cloud)
 
-The app (`streamlit_app.py`) has three pages, all in Spanish:
+The app (`streamlit_app.py`) is in Spanish. Events are grouped in **series** (e.g. a webinar cycle; one-off events go under *Eventos individuales*) and have a **type** (Webinar, Seminario presencial, Híbrido, Taller, Conferencia… — extendable). Pages:
+
+- **Subir evento** · **Todos los eventos** (global dashboard) · **Por serie** (dropdown) · **Por evento** (series → event) · **Administrar** (create/rename series, per-series organizers and style example, move an event to another series or type, add event types, platform title).
+
+Older single-series data is migrated automatically on first start: existing events are filed under a series named after the old settings, as webinars.
+
+Details of the original three pages:
 
 - **Subir evento**: drag all the Webex files of one event (or a zip). The app recognises each file, shows a checklist, and on *Procesar evento* computes the statistics, has Claude write the article (ES + EN), and saves everything.
 - **Toda la serie**: the series dashboard.

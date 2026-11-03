@@ -72,6 +72,8 @@ def chat_text(chat: list[ChatMsg], staff: set[str]) -> str:
 
 
 def stats_paragraph(s: dict, lang="es") -> str:
+    subj_es = "La sesión" if "webinar" in str(s.get("type", "Webinar")).lower() else "El evento"
+    subj_en = "The session" if subj_es == "La sesión" else "The event"
     """Participation paragraph from numbers only."""
     n = s["participants_total"]
     d = s["demographics"]
@@ -87,7 +89,7 @@ def stats_paragraph(s: dict, lang="es") -> str:
 
     if lang == "es":
         cnt = f"más de {rounded}" if n > rounded else f"{n}"
-        p = f"La sesión reunió a **{cnt} participantes de {d['countries_n']} países**"
+        p = f"{subj_es} reunió a **{cnt} participantes de {d['countries_n']} países**"
         p += f", de los cuales el {lac:.0f}% provenía de América Latina y el Caribe." if lac is not None else "."
         if big:
             p += (f" {join(big, 'y')} representaron, cada uno, más del 10% de los asistentes." if len(big) > 1
@@ -102,7 +104,7 @@ def stats_paragraph(s: dict, lang="es") -> str:
             p = p.replace(" a el ", " al ")
         return p
     cnt = f"more than {rounded}" if n > rounded else f"{n}"
-    p = f"The session brought together **{cnt} participants from {d['countries_n']} countries**"
+    p = f"{subj_en} brought together **{cnt} participants from {d['countries_n']} countries**"
     p += f", {lac:.0f}% of them from Latin America and the Caribbean." if lac is not None else "."
     if big:
         p += (f" {join(big, 'and')} each accounted for more than 10% of attendees." if len(big) > 1
@@ -120,7 +122,7 @@ def stats_paragraph(s: dict, lang="es") -> str:
 # -------------------------------------------------------------- prompting
 
 SYSTEM_ES = """Eres periodista de la Unidad de Comunicaciones de la CEPAL. Redactas notas informativas \
-para el sitio web sobre seminarios web que ya ocurrieron. Escribes en español neutro, claro y sobrio, \
+para el sitio web sobre eventos que ya ocurrieron (seminarios web, seminarios presenciales, talleres, conferencias). Escribes en español neutro, claro y sobrio, \
 en tercera persona y en pasado, con el estilo institucional de Naciones Unidas.
 
 REGLAS DE CONTENIDO
@@ -141,7 +143,7 @@ automáticamente contra la transcripción. Incluye dos citas, máximo tres.
 ESTRUCTURA (como en el ejemplo)
 1. Título: una frase informativa que sintetice la idea central (sin el nombre del ponente).
 2. Bajada: una oración en cursiva que resuma la sesión.
-3. Primer párrafo: idea central + nombre de la serie, organizadores, fecha, ponente con cargo e institución, moderación.
+3. Primer párrafo: idea central + nombre de la serie (si el evento pertenece a una), organizadores, fecha, ponente con cargo e institución, moderación.
 4. Apertura institucional (si la hubo): quién abrió y qué destacó.
 5. Tres a cinco párrafos con los argumentos principales del ponente, con las citas.
 6. Un párrafo sobre los temas del diálogo con el público.
@@ -170,14 +172,17 @@ Usa markdown simple dentro de los párrafos (**negrita**, *cursiva*, [texto](url
 
 
 def build_prompt_es(ctx: dict) -> str:
-    exf = paths.config_file("style_example_es.md")
+    from . import catalog as CAT
+    exf = CAT.style_example_path((ctx.get("series") or {}).get("id"))
     ex = exf.read_text(encoding="utf-8") if exf.exists() else "(sin ejemplo: sigue la estructura indicada)"
-    ser = series_config()
+    ser = ctx.get("series") or {}
     overrides = ctx.get("overrides") or {}
+    standalone = ser.get("id") == "individuales"
     parts = [
         "## EJEMPLO DE ESTILO (nota publicada de una sesión anterior; imita estructura y tono, no el contenido)\n" + ex,
         "## DATOS DEL EVENTO\n" + yaml.safe_dump({
-            "serie": ser.get("series_name_es"),
+            **({} if standalone else {"serie": ser.get("name_es")}),
+            "tipo_de_evento": ctx.get("event_type"),
             "organizadores": ser.get("organizers_es"),
             "nombre_en_webex": ctx["webinar_name"],
             "fecha": ctx["date_es"],
@@ -278,9 +283,9 @@ QUOTE_RE = re.compile(r"[“«\"]([^”»\"]{25,})[”»\"]")
 def review(md_es: str, sources: dict, article: dict) -> str:
     """Quote verification + names to double-check."""
     tr = N.norm_text(sources["transcript_raw"])
-    ser = series_config()
+    ser = sources.get("series") or {}
     other = N.norm_text(" ".join([sources["slides"], sources["chat"], sources.get("webinar_name", ""),
-                                  ser.get("series_name_es", ""), ser.get("series_name_en", "")]))
+                                  ser.get("name_es", ""), ser.get("name_en", "")]))
     lines = ["# Revisión automática / Automatic review", ""]
     lines += ["## Citas / Quotes", ""]
     any_q = False
@@ -305,7 +310,7 @@ def review(md_es: str, sources: dict, article: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def make_context(meta, utts, chat, slides, ai_summary, people, overrides) -> dict:
+def make_context(meta, utts, chat, slides, ai_summary, people, overrides, series=None, event_type="Webinar") -> dict:
     staff = people[people.role != "attendee"]
     staff_names = {N.norm_text(x) for x in staff.display_name.dropna()}
     trimmed = trim_transcript(utts, meta)
@@ -322,6 +327,8 @@ def make_context(meta, utts, chat, slides, ai_summary, people, overrides) -> dic
         "slides": "\n\n".join(f"[Diapositiva {i + 1}]\n{t}" for i, t in enumerate(slides) if t.strip()),
         "ai_summary": ai_summary,
         "overrides": overrides,
+        "series": series or {},
+        "event_type": event_type,
     }
 
 

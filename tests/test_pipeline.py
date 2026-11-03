@@ -93,7 +93,7 @@ def test_app_starts_and_shows_pages(tmp_path, monkeypatch):
     at = AppTest.from_file(str(app), default_timeout=60).run()
     assert not at.exception
     assert any("Subir un evento" in t.value for t in at.title)
-    for page in ("Toda la serie", "Por evento"):
+    for page in ("Todos los eventos", "Por serie", "Por evento", "Administrar"):
         at.session_state["page"] = page
         at.session_state["nav"] = page
         at.run()
@@ -139,3 +139,34 @@ def test_mailing_list_unique_across_events(home, tmp_path):
     one = export.mailing_list(["2026-06-12"])
     assert len(one) == 60 + 2
     assert export.to_excel(df)[:2] == b"PK" and export.to_text(df).count(b"\n") == len(df)
+
+
+def test_series_catalog_and_app_pages(home, tmp_path, monkeypatch):
+    pytest.importorskip("streamlit")
+    import yaml
+    from pathlib import Path
+    from streamlit.testing.v1 import AppTest
+    from eventkit import catalog as CAT
+    from eventkit.site import build_site
+    CAT.ensure()
+    a = CAT.add_series("Serie A", "Series A")
+    b = CAT.add_series("Serie B", "Series B")
+    d1 = make(tmp_path / "e1", date="2026-05-12", seed=4)
+    (d1 / "event.yml").write_text(yaml.safe_dump({"series": a, "type": "Webinar"}))
+    d2 = make(tmp_path / "e2", date="2026-05-12", seed=5)                    # same date, other series
+    (d2 / "event.yml").write_text(yaml.safe_dump({"series": b, "type": "Taller"}))
+    e1, e2 = cli.process([d1]), cli.process([d2])
+    assert e1 == "2026-05-12" and e2 == f"2026-05-12-{b}"
+    CAT.set_event_meta(e2, series=a)                                        # move B -> A
+    cli.rebuild()
+    assert CAT.event_meta(e2)["series"] == a and CAT.event_meta(e2)["type"] == "Taller"
+    html = build_site().read_text()
+    assert '"series_metrics"' in html and a in html
+    monkeypatch.setenv("EVENTKIT_HOME", str(home))
+    app = Path(__file__).resolve().parent.parent / "streamlit_app.py"
+    at = AppTest.from_file(str(app), default_timeout=90).run()
+    for page in ("Todos los eventos", "Por serie", "Por evento", "Administrar"):
+        at.session_state["page"] = page
+        at.session_state["nav"] = page
+        at.run()
+        assert not at.exception, (page, at.exception)

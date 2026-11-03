@@ -32,11 +32,39 @@ def embed_html(index_html: str, tab: str = "series") -> str:
     return index_html.replace("const DATA =", inject + "const DATA =", 1)
 
 
+def metrics_bundle(att, events) -> dict:
+    """Cross-event metrics for everything, and for each series on its own."""
+    if not len(att):
+        return {"global": {}, "series": {}}
+    from . import catalog as CAT
+    out = {"global": store.series_metrics(att, events), "series": {}}
+    sids = []
+    for e in events:
+        sid = e.get("series") or CAT.series_list()[0]["id"]
+        e["series"] = sid
+        if sid not in sids:
+            sids.append(sid)
+    for sid in sids:
+        evs = [e for e in events if e["series"] == sid]
+        ids = {e["id"] for e in evs}
+        out["series"][sid] = store.series_metrics(att[att.event_id.isin(ids)], evs)
+    a = att[(att.attended == 1) & (att.role.fillna("attendee").isin(["attendee", ""]))]
+    smap = {e["id"]: e["series"] for e in events}
+    k = a.assign(s=a.event_id.map(smap)).groupby("pid").s.nunique()
+    out["global"]["multi_series"] = int((k >= 2).sum())
+    return out
+
+
 def build_site(out: Path | None = None) -> Path:
+    from . import catalog as CAT
     out = out or paths.public_dir()
     events = store.load_events()
     att = store.load_attendance()
-    series = store.series_metrics(att, events) if len(att) else {}
+    for e in events:  # classification lives in meta.yml (it can change after processing)
+        m = CAT.event_meta(e["id"])
+        e["series"] = m.get("series") or e.get("series")
+        e["type"] = m.get("type") or e.get("type") or "Webinar"
+    mb = metrics_bundle(att, events)
     out.mkdir(parents=True, exist_ok=True)
     payload_events = []
     for e in events:
@@ -59,14 +87,20 @@ def build_site(out: Path | None = None) -> Path:
         ev["summary"] = texts
         ev["docx"] = files
         ev["review"] = review
-        ev["series"] = series.get("per_event", {}).get(e["id"], {})
+        ev["sm"] = mb["series"].get(e.get("series"), {}).get("per_event", {}).get(e["id"], {})   # within its series
+        ev["gm"] = mb["global"].get("per_event", {}).get(e["id"], {})                           # across all events
         payload_events.append(ev)
 
-    cfg = series_config()
+    cat = CAT.load()
+    used = {e.get("series") for e in events}
     payload = {
-        "config": {k: cfg.get(k) for k in ("dashboard_title_es", "dashboard_title_en", "series_name_es", "series_name_en")},
+        "config": {"title_es": cat["platform_title_es"], "title_en": cat["platform_title_en"]},
+        "types": cat["types"],
+        "series_list": [{"id": s["id"], "name": s["name_es"], "organizers": s.get("organizers_es", "")}
+                        for s in CAT.series_list() if s["id"] in used],
         "events": payload_events,
-        "series": {k: v for k, v in series.items() if k != "per_event"},
+        "global": {k: v for k, v in mb["global"].items() if k != "per_event"},
+        "series_metrics": {sid: {k: v for k, v in m.items() if k != "per_event"} for sid, m in mb["series"].items()},
         "sectors": _labels(),
         "country_en": _country_en(),
     }

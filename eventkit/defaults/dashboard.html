@@ -55,7 +55,9 @@ table{width:100%;border-collapse:collapse;font-size:13.5px}
 th,td{text-align:right;padding:7px 8px;border-bottom:1px solid var(--grid);white-space:nowrap}
 th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left}
 th{color:var(--ink2);font-weight:600;font-size:12.5px}
-td.t{white-space:normal;min-width:180px}
+td.t{white-space:normal;min-width:160px}
+th.l,td.l{text-align:left!important}
+td a{color:var(--accent);text-decoration:none}td a:hover{text-decoration:underline}
 .scroll{overflow-x:auto}
 .ev-head{margin:0 0 14px}
 .ev-head h2{font-size:20px;margin:0}
@@ -81,6 +83,7 @@ summary{cursor:pointer;color:var(--ink2);font-size:13.5px}
 @media (max-width:520px){.kpi .v{font-size:22px}h1{font-size:19px}}
 .embed header,.embed .tabs,.embed .btns,.embed .article-card{display:none!important}
 .embed main{padding-top:4px}
+.embed .view-head h2{display:none}
 @media print{
   body{background:#fff}
   .tabs,.pbtn,.btns,details,.article{display:none!important}
@@ -104,7 +107,7 @@ const T = {
 };
 const lang = "es";
 const EMBED = !!window.EK_EMBED;
-let tab = window.EK_TAB || decodeURIComponent(location.hash.slice(1)) || "series";
+let tab = window.EK_TAB || decodeURIComponent(location.hash.slice(1)) || "global";
 const $ = (s,el=document)=>el.querySelector(s);
 const h = (tag,attrs={},...kids)=>{const e=document.createElement(tag);for(const[k,v]of Object.entries(attrs)){if(k==="class")e.className=v;else if(k==="text")e.textContent=v;else e.setAttribute(k,v)}for(const k of kids)if(k!=null)e.append(k);return e};
 const NS="http://www.w3.org/2000/svg";
@@ -157,7 +160,7 @@ function vbars(cats,series,{stacked=false}={}){
       const lb=s("text",{x:cx,y:H-pb+16,"text-anchor":"middle",class:"lbl"});lb.textContent=c.label;svg.append(lb);
       const lb2=s("text",{x:cx,y:H-pb+30,"text-anchor":"middle"});lb2.textContent=c.sub||"";svg.append(lb2);
       const hit=s("rect",{x:pl+bw*i,y:pt,width:bw,height:ih,fill:"transparent"});
-      const lines=[c.tipTitle||c.label,...series.map(sr=>`${sr.label}: ${fmt(sr.values[i]||0)}`)];
+      const lines=[c.tipTitle||c.label,...series.filter(sr=>!stacked||sr.values[i]).map(sr=>`${sr.label}: ${fmt(sr.values[i]||0)}`)];
       hit.addEventListener("pointermove",e=>showTip(e,lines));hit.addEventListener("pointerleave",hideTip);svg.append(hit)});
     wrap.replaceChildren(svg)};
   new ResizeObserver(draw).observe(wrap);return wrap}
@@ -227,11 +230,20 @@ function delta(cur,prev,kind){
   if(!prev)return null;const x=100*(cur-prev)/prev;return `${x>0?"▲ +":x<0?"▼ −":"= "}${fmt(Math.abs(x),0)}% vs. sesión anterior`}
 const card=(title,hint,...body)=>h("section",{class:"card"},h("h2",{text:title}),hint?h("p",{class:"hint",text:hint}):null,...body);
 
-function seriesView(){
-  const E=DATA.events,S=DATA.series||{};
+const seriesName=sid=>(DATA.series_list.find(x=>x.id===sid)||{}).name||sid;
+const evOf=sid=>DATA.events.filter(e=>e.series===sid);
+const avg=(arr,f)=>arr.length?arr.reduce((a,e)=>a+f(e),0)/arr.length:null;
+const SERIES_SLOTS=["var(--s1)","var(--s2)","var(--s3)","var(--s4)","var(--s5)","var(--s6)"];
+const seriesColor=sid=>{const i=DATA.series_list.findIndex(x=>x.id===sid);return i>=0&&i<6?SERIES_SLOTS[i]:"var(--muted)"};
+const typeColor=ty=>{const i=(DATA.types||[]).indexOf(ty);return i>=0&&i<6?SERIES_SLOTS[i]:"var(--muted)"};
+const evLink=e=>{const a=h("a",{href:"#"+e.id,text:evTitle(e)});if(EMBED){a.removeAttribute("href");}return a};
+
+function seriesView(sid){
+  const E=evOf(sid),S=(DATA.series_metrics||{})[sid]||{};
+  if(!E.length)return [h("p",{class:"empty",text:"Esta serie aún no tiene eventos."})];
   const regs=E.reduce((a,e)=>a+(e.registrations||0),0);
   const conv=E.filter(e=>e.conversion_pct!=null);
-  const avg=(arr,f)=>arr.length?arr.reduce((a,e)=>a+f(e),0)/arr.length:null;
+  const head=h("div",{class:"ev-head view-head"},h("h2",{text:seriesName(sid)}),h("div",{class:"meta",text:`${E.length} ${E.length===1?"evento":"eventos"} · ${dateStr(E[0].date)} – ${dateStr(E[E.length-1].date)}`}));
   const k=h("div",{class:"kpis"},
     kpi(fmt(E.length),t("events")),
     kpi(fmt(S.unique_attendees),t("unique"),t("uniqueN")),
@@ -244,19 +256,64 @@ function seriesView(){
   const c1=card(t("regVsPart"),t("regVsPartH"),legend([["var(--s1)",t("registered")],["var(--s2)",t("participants")]]),
     vbars(cats,[{label:t("registered"),color:"var(--s1)",values:E.map(e=>e.registrations||0)},{label:t("participants"),color:"var(--s2)",values:E.map(e=>e.participants_total)}]));
   const c2=card(t("newRet"),t("newRetH"),legend([["var(--s1)",t("new")],["var(--s2)",t("ret")]]),
-    vbars(cats,[{label:t("new"),color:"var(--s1)",values:E.map(e=>e.series.new||0)},{label:t("ret"),color:"var(--s2)",values:E.map(e=>e.series.returning||0)}],{stacked:true}));
-  const cols=[["#",(e,i)=>i+1],[t("session"),e=>evTitle(e)],[t("date"),e=>dateStr(e.date)],[t("registered"),e=>fmt(e.registrations)],[t("participants"),e=>fmt(e.participants_total)],[t("conv"),e=>pct(e.conversion_pct)],[t("peak"),e=>fmt(e.peak_concurrent)],[t("median"),e=>fmt(e.minutes_median)],[t("countries"),e=>fmt(e.demographics.countries_n)],[t("women"),e=>pct(e.demographics.women_pct)],[t("lac"),e=>pct(e.demographics.lac_pct)],[t("ret"),e=>pct(e.series.returning_pct)],[t("questions"),e=>fmt(e.chat.questions)]];
-  const tbl=h("table",{},h("thead",{},h("tr",{},...cols.map(c=>h("th",{text:c[0]})))),h("tbody",{},...E.map((e,i)=>h("tr",{},...cols.map((c,j)=>h("td",j===1?{class:"t"}:{},String(c[1](e,i))))))));
-  return [k,h("div",{class:"grid"},c1,c2),h("div",{style:"height:16px"}),card(t("tableT"),null,h("div",{class:"scroll"},tbl))];
+    vbars(cats,[{label:t("new"),color:"var(--s1)",values:E.map(e=>(e.sm||{}).new||0)},{label:t("ret"),color:"var(--s2)",values:E.map(e=>(e.sm||{}).returning||0)}],{stacked:true}));
+  const cols=[["#",(e,i)=>i+1],[t("session"),e=>evLink(e)],["Tipo",e=>e.type||""],[t("date"),e=>dateStr(e.date)],[t("registered"),e=>fmt(e.registrations)],[t("participants"),e=>fmt(e.participants_total)],[t("conv"),e=>pct(e.conversion_pct)],[t("peak"),e=>fmt(e.peak_concurrent)],[t("median"),e=>fmt(e.minutes_median)],[t("countries"),e=>fmt(e.demographics.countries_n)],[t("women"),e=>pct(e.demographics.women_pct)],[t("ret"),e=>pct((e.sm||{}).returning_pct)],[t("questions"),e=>fmt(e.chat.questions)]];
+  return [head,k,h("div",{class:"grid"},c1,c2),h("div",{style:"height:16px"}),card(t("tableT"),null,table(cols,E,[1,2]))];
+}
+
+function table(cols,rows,textCols){
+  const L=new Set([].concat(textCols));
+  return h("div",{class:"scroll"},h("table",{},h("thead",{},h("tr",{},...cols.map((c,j)=>h("th",L.has(j)?{class:"l",text:c[0]}:{text:c[0]})))),
+    h("tbody",{},...rows.map((e,i)=>h("tr",{},...cols.map((c,j)=>{const v=c[1](e,i);const td=h("td",L.has(j)?{class:"t l"}:{});
+      if(v instanceof Node)td.append(v);else td.textContent=String(v);return td}))))))}
+
+function globalView(){
+  const E=DATA.events,G=DATA.global||{},SL=DATA.series_list;
+  if(!E.length)return [h("p",{class:"empty",text:"Todavía no hay eventos."})];
+  const regs=E.reduce((a,e)=>a+(e.registrations||0),0),parts=E.reduce((a,e)=>a+(e.participants_total||0),0);
+  const conv=E.filter(e=>e.conversion_pct!=null);
+  const head=h("div",{class:"ev-head view-head"},h("h2",{text:"Todos los eventos"}),h("div",{class:"meta",text:`${E.length} eventos en ${SL.length} ${SL.length===1?"serie":"series"} · ${dateStr(E[0].date)} – ${dateStr(E[E.length-1].date)}`}));
+  const k=h("div",{class:"kpis"},
+    kpi(fmt(E.length),"Eventos"),
+    kpi(fmt(SL.length),"Series"),
+    kpi(fmt(G.unique_attendees),"Personas únicas","asistentes distintos en todos los eventos"),
+    kpi(fmt(parts),"Participaciones","suma de participantes de cada evento"),
+    kpi(fmt(regs),t("regs")),
+    kpi(pct(avg(conv,e=>e.conversion_pct)),t("conv"),"promedio de los eventos"),
+    kpi(fmt(G.attended_2plus),"Asistieron a 2+ eventos"),
+    kpi(fmt(G.multi_series),"Participaron en 2+ series"),
+    kpi(pct(avg(E.filter(e=>e.demographics.women_pct!=null),e=>e.demographics.women_pct)),t("women"),"promedio de los eventos"));
+  // participants per event over time, coloured by series
+  const cats=E.map((e,i)=>({label:dateStr(e.date).replace(/ \d{4}$/,""),sub:"",tipTitle:`${evTitle(e)} · ${seriesName(e.series)}`}));
+  const perSeries=SL.map(sv=>({label:sv.name,color:seriesColor(sv.id),values:E.map(e=>e.series===sv.id?e.participants_total:0)}));
+  const c1=card("Participantes por evento","Cada barra es un evento; el color indica la serie",
+    legend(SL.map(sv=>[seriesColor(sv.id),sv.name.length>48?sv.name.slice(0,47)+"…":sv.name])),vbars(cats,perSeries,{stacked:true}));
+  // events by type (ring: share of events)
+  const types={};E.forEach(e=>{types[e.type||"Otro"]=(types[e.type||"Otro"]||0)+1});
+  const tk=Object.keys(types).sort((a,b)=>types[b]-types[a]);
+  const c2=card("Eventos por tipo",null,ring(tk.map((k2,i)=>({label:k2,n:types[k2],count:types[k2],pct:100*types[k2]/E.length,color:typeColor(k2)})),{center:fmt(E.length),sub:"eventos"}));
+  // table by series
+  const rows=SL.map(sv=>{const es=evOf(sv.id),m=(DATA.series_metrics||{})[sv.id]||{};const cv=es.filter(e=>e.conversion_pct!=null);
+    return {sv,es,m,parts:es.reduce((a,e)=>a+e.participants_total,0),conv:avg(cv,e=>e.conversion_pct)}});
+  const scol=[["Serie",r=>{const sp=h("span",{});sp.append(h("i",{style:`display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px;background:${seriesColor(r.sv.id)}`}),r.sv.name);return sp}],
+    ["Eventos",r=>fmt(r.es.length)],["Participantes",r=>fmt(r.parts)],["Promedio por evento",r=>fmt(r.es.length?r.parts/r.es.length:null)],
+    [t("conv"),r=>pct(r.conv)],["Personas únicas",r=>fmt(r.m.unique_attendees)],["Asistieron a 2+",r=>fmt(r.m.attended_2plus)],
+    ["Último evento",r=>dateStr(r.es.length?r.es[r.es.length-1].date:null)]];
+  const ecol=[[t("date"),e=>dateStr(e.date)],[t("session"),e=>evLink(e)],["Serie",e=>seriesName(e.series)],["Tipo",e=>e.type||""],
+    [t("participants"),e=>fmt(e.participants_total)],[t("conv"),e=>pct(e.conversion_pct)],["Recurrentes (cualquier evento)",e=>pct((e.gm||{}).returning_pct)]];
+  return [head,k,h("div",{class:"grid"},c1,c2),h("div",{style:"height:16px"}),
+    card("Resumen por serie",null,table(scol,rows,[0])),h("div",{style:"height:16px"}),
+    card("Todos los eventos",null,table(ecol,[...E].reverse(),[1,2,3]))];
 }
 
 function eventView(e){
-  const d=e.demographics, idx=DATA.events.indexOf(e), P=idx>0?DATA.events[idx-1]:null, pd=P?P.demographics:{};
-  const head=h("div",{class:"ev-head"},h("h2",{text:evTitle(e)}),h("div",{class:"meta",text:[e.speaker,e.speaker_affiliation,dateStr(e.date)].filter(Boolean).join(" · ")}));
+  const SE=evOf(e.series), d=e.demographics, idx=SE.indexOf(e), P=idx>0?SE[idx-1]:null, pd=P?P.demographics:{};
+  const head=h("div",{class:"ev-head"},h("h2",{text:evTitle(e)}),h("div",{class:"meta",text:[e.speaker,e.speaker_affiliation,dateStr(e.date)].filter(Boolean).join(" · ")}),
+    h("div",{class:"meta",style:"font-size:13px",text:`${seriesName(e.series)} · ${e.type||""} · evento ${idx+1} de ${SE.length}`}));
   const notes=[];const dn=e.data_notes||{};
   if(dn.us_default_discarded)notes.push(t("usNote")(dn.us_default_discarded));
   if(dn.country_inferred_from_email)notes.push(t("inferredNote")(dn.country_inferred_from_email));
-  const ser=e.series||{}, pser=P?(P.series||{}):{};
+  const ser=e.sm||{}, gm=e.gm||{};
   const g=(title,...tiles)=>[h("div",{class:"kgroup",text:title}),h("div",{class:"kpis"},...tiles)];
   const kp=[
     ...g("Alcance",
@@ -273,7 +330,8 @@ function eventView(e){
       kpi(fmt(e.chat.people),"Personas que escribieron en el chat")),
     ...g("Perfil del público",
       kpi(pct(d.women_pct),t("women"),null,P&&delta(d.women_pct,pd.women_pct,"pp")),
-      kpi(pct(ser.returning_pct),"Público recurrente",idx>0?"asistió a una sesión anterior":"primera sesión de la serie"),
+      kpi(pct(ser.returning_pct),"Recurrente en la serie",idx>0?"asistió a un evento anterior de esta serie":"primer evento de la serie"),
+      kpi(pct(gm.returning_pct),"Recurrente en general","asistió antes a cualquier otro evento"),
       d.sectors[0]?kpi(pct(d.sectors[0].pct),secName(d.sectors[0].key),"sector principal"):null,
       d.countries[0]?kpi(pct(d.countries[0].pct),cname(d.countries[0].key),"país con más participantes"):null),
   ];
@@ -283,7 +341,8 @@ function eventView(e){
   const top3=d.countries.slice(0,3);if(top3.length)facts.push(`${top3.map(c=>cname(c.key)).join(", ").replace(/, ([^,]*)$/," y $1")} concentraron el ${pct(top3.reduce((a,c)=>a+c.pct,0))} de los participantes con país conocido; el ${pct(d.lac_pct)} provino de América Latina y el Caribe.`);
   if(e.peak_concurrent)facts.push(`El máximo de personas conectadas a la vez fue ${fmt(e.peak_concurrent)}; la mitad del público estuvo conectada al menos ${fmt(e.minutes_median)} minutos y el ${pct(e.stayed_half_pct)} se quedó más de la mitad de la sesión.`);
   if(d.women_pct!=null&&d.sectors.length>1)facts.push(`Las mujeres representaron el ${pct(d.women_pct)} de la participación. Por sector destacaron ${(DATA.sectors[d.sectors[0].key]||{}).es_def} (${pct(d.sectors[0].pct)}) y ${(DATA.sectors[d.sectors[1].key]||{}).es_def} (${pct(d.sectors[1].pct)}).`);
-  if(idx>0&&ser.returning!=null)facts.push(`${fmt(ser.returning)} personas del público (${pct(ser.returning_pct)}) ya habían asistido a una sesión anterior de la serie.`);
+  if(idx>0&&ser.returning!=null)facts.push(`${fmt(ser.returning)} personas del público (${pct(ser.returning_pct)}) ya habían asistido a un evento anterior de esta serie.`);
+  if(gm.returning&&gm.returning!==ser.returning)facts.push(`Contando todos los eventos, ${fmt(gm.returning)} personas (${pct(gm.returning_pct)}) ya habían participado antes en alguna actividad.`);
   if(e.chat.messages)facts.push(`En el chat se publicaron ${fmt(e.chat.messages)} mensajes de ${fmt(e.chat.people)} personas, con ${fmt(e.chat.questions)} preguntas.`);
   const factsBox=h("section",{class:"facts"},h("h2",{text:"Datos clave"}),h("ul",{},...facts.map(f=>h("li",{text:f}))));
   const top=d.countries.slice(0,10),rest=d.countries.slice(10);
@@ -316,17 +375,21 @@ function render(){
   if(EMBED){document.body.classList.add("embed");document.documentElement.setAttribute("data-theme","light");}
   document.documentElement.lang=lang;
   const C=DATA.config||{};
-  $("#title").textContent=(lang==="es"?C.dashboard_title_es:C.dashboard_title_en)||"Webinars";
-  $("#subtitle").textContent=(lang==="es"?C.series_name_es:C.series_name_en)||"";
+  $("#title").textContent=C.title_es||"Eventos";
+  $("#subtitle").textContent="";
+  if(tab==="series")tab="global";
   const tabs=$("#tabs");tabs.replaceChildren();
-  const ids=["series",...DATA.events.map(e=>e.id)];if(!ids.includes(tab))tab="series";
-  ids.forEach((id,i)=>{const e=DATA.events.find(x=>x.id===id);
-    const b=h("button",{role:"tab","aria-selected":id===tab},id==="series"?t("series"):`#${i} · ${dateStr(e.date)}`);
-    b.title=e?evTitle(e):"";b.onclick=()=>{tab=id;history.replaceState(null,"","#"+id);render();scrollTo(0,0)};tabs.append(b)});
-  const m=$("#main");m.replaceChildren(...(tab==="series"?seriesView():eventView(DATA.events.find(x=>x.id===tab))));
+  const ids=["global",...DATA.series_list.map(x=>"series:"+x.id)];
+  const ev=DATA.events.find(x=>x.id===tab);
+  if(!ids.includes(tab)&&!ev)tab="global";
+  ids.forEach(id=>{const b=h("button",{role:"tab","aria-selected":id===tab||(ev&&id==="series:"+ev.series)},
+      id==="global"?"Todos los eventos":seriesName(id.slice(7)).slice(0,40));
+    b.onclick=()=>{tab=id;history.replaceState(null,"","#"+id);render();scrollTo(0,0)};tabs.append(b)});
+  const m=$("#main");
+  m.replaceChildren(...(tab==="global"?globalView():tab.startsWith("series:")?seriesView(tab.slice(7)):eventView(ev)));
 }
 $("#print").onclick=()=>print();
-addEventListener("hashchange",()=>{tab=decodeURIComponent(location.hash.slice(1))||"series";render()});
+addEventListener("hashchange",()=>{tab=decodeURIComponent(location.hash.slice(1))||"global";render()});
 render();
 </script>
 </body>

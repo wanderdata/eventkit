@@ -22,6 +22,7 @@ from pathlib import Path
 
 import yaml
 
+from . import catalog as CAT
 from . import normalize as N
 from . import parsers as P
 from . import stats as S
@@ -93,7 +94,7 @@ def _fill_sectors_with_claude(frames):
     return False
 
 
-def process(files: list[Path], force_summary=False, move_raw=True) -> str:
+def process(files: list[Path], force_summary=False, move_raw=True, event_id: str | None = None) -> str:
     kinds = classify_files(_expand(files))
     if not kinds.get("participants"):
         raise SystemExit("No Webex participant report found among: " + ", ".join(f.name for f in files))
@@ -108,8 +109,22 @@ def process(files: list[Path], force_summary=False, move_raw=True) -> str:
     if kinds.get("event_yml"):
         overrides = yaml.safe_load(kinds["event_yml"][0].read_text(encoding="utf-8")) or {}
 
-    event_id = overrides.get("id") or meta.planned_start.strftime("%Y-%m-%d")
+    date_id = meta.planned_start.strftime("%Y-%m-%d")
+    fixed = event_id or overrides.get("id")
+    event_id = fixed or date_id
+    series_id = overrides.get("series")
+    if not fixed and series_id:
+        # same date in another series -> its own event, e.g. 2026-11-03-otra-serie
+        other = CAT.event_meta(event_id).get("series")
+        if (paths.events_dir() / event_id).exists() and other and other != series_id:
+            event_id = f"{date_id}-{series_id}"
     edir = paths.events_dir() / event_id
+    # classification: meta.yml (set from the app, e.g. after moving an event) wins over the upload's event.yml
+    m = CAT.event_meta(event_id)
+    series_id = m.get("series") or series_id or CAT.series_list()[0]["id"]
+    event_type = m.get("type") or overrides.get("type") or "Webinar"
+    CAT.set_event_meta(event_id, series=series_id, type=event_type)
+    ser = CAT.get_series(series_id)
     (edir / "raw").mkdir(parents=True, exist_ok=True)
     print(f"→ {event_id}: {meta.webinar_name}")
     for k, v in sorted(kinds.items()):
@@ -129,7 +144,7 @@ def process(files: list[Path], force_summary=False, move_raw=True) -> str:
         N._org_cache.cache_clear()
         s, p, regp = S.event_stats(people, raw_rows, meta, reg, chat)
 
-    ctx = SUM.make_context(meta, utts, chat, slides, ai_sum, p, overrides)
+    ctx = SUM.make_context(meta, utts, chat, slides, ai_sum, p, overrides, series=ser, event_type=event_type)
     status = SUM.write_summaries(edir, ctx, s, force=force_summary)
     print(f"  summaries: {status}")
 
@@ -145,6 +160,8 @@ def process(files: list[Path], force_summary=False, move_raw=True) -> str:
         "headline_es": es.get("title"),
         "headline_en": en.get("title"),
         "summary_status": status,
+        "series": series_id,
+        "type": event_type,
     })
     (edir / "stats.json").write_text(json.dumps(s, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
     store.save_event(s)
@@ -166,7 +183,7 @@ def rebuild(force_summary=False):
     if not paths.events_dir().exists():
         return
     for edir in sorted(d for d in paths.events_dir().iterdir() if (d / "raw").is_dir()):
-        process([edir / "raw"], force_summary=force_summary, move_raw=False)
+        process([edir / "raw"], force_summary=force_summary, move_raw=False, event_id=edir.name)
 
 
 def export_docx():
