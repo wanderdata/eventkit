@@ -1,13 +1,13 @@
 """Participation statistics for one event (pure code, no AI)."""
-
-# Bump when event_stats() gains or changes fields; the app then recomputes older events.
-STATS_VERSION = 2
 from __future__ import annotations
 
 import pandas as pd
 
 from . import normalize as N
 from .parsers import ChatMsg, EventMeta, is_question
+
+# Bump when event_stats() gains or changes fields; the app then recomputes older events.
+STATS_VERSION = 2
 
 
 def enrich(people: pd.DataFrame, reg: pd.DataFrame | None) -> pd.DataFrame:
