@@ -15,7 +15,6 @@ import zipfile
 from pathlib import Path
 
 import streamlit as st
-import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Webinars · eventos", page_icon="📊", layout="wide")
 
@@ -110,6 +109,18 @@ def events():
     return list(reversed(S.load_events()))  # newest first
 
 
+def show_dashboard(tab: str, fallback_height: int):
+    """Embed the dashboard (our own generated HTML; user data inside is escaped by the page)."""
+    html = dashboard_html(tab)
+    if hasattr(st, "iframe"):
+        # a keyed container per view, so Streamlit doesn't reuse the frame (and its old height)
+        with st.container(key=f"dash_{re.sub(r'[^A-Za-z0-9_]', '_', tab)}"):
+            st.iframe(html, height="content")
+    else:  # older Streamlit
+        import streamlit.components.v1 as components
+        components.html(html, height=fallback_height, scrolling=True)
+
+
 def event_label(e):
     return f"{e.get('date', e['id'])} · {e.get('title_es') or e.get('webinar_name', '')}"
 
@@ -140,7 +151,7 @@ with st.sidebar:
         st.rerun()
     st.caption(f"Datos: {stg.describe()}")
     if not os.environ.get("ANTHROPIC_API_KEY"):
-        st.warning("Sin ANTHROPIC_API_KEY: las notas no se redactan automáticamente.", icon="⚠️")
+        st.info("Notas en modo manual: se pegan en «Por evento».", icon="✍️")
 
 
 # ================================================================ upload
@@ -237,10 +248,41 @@ def page_series():
     if not S.load_events():
         st.info("Todavía no hay eventos. Usa «Subir evento».")
         return
-    components.html(dashboard_html("series"), height=1250, scrolling=True)
+    show_dashboard("series", 1250)
 
 
 # ================================================================ event
+def manual_article(eid, edir, lang, md, dx):
+    """No article yet: offer the prepared prompt, the participation paragraph, and a box to paste the article."""
+    st.info("Aún no hay nota en este idioma. Redáctala por tu cuenta y pégala aquí: se guardará con el evento "
+            "y se generará el Word.")
+    ev = next((e for e in S.load_events() if e["id"] == eid), None)
+    c1, c2 = st.columns(2)
+    prompt = edir / "prompt_es.md"
+    if prompt.exists():
+        c1.download_button("Descargar el texto preparado para Claude", prompt.read_bytes(),
+                           file_name=f"{eid}_prompt.md", use_container_width=True, key=f"pr_{lang}",
+                           help="Incluye transcripción, chat, diapositivas e instrucciones de estilo. "
+                                "Pégalo en Claude para obtener un borrador.")
+    if ev:
+        with st.expander("Párrafo de cifras de participación (para copiar en la nota)"):
+            st.code(SUM.stats_paragraph(ev, lang), language=None, wrap_lines=True)
+    title = "Pega la nota final" if lang == "es" else "Paste the final article"
+    text = st.text_area(f"{title} (la primera línea con `# ` se usa como título)", height=380,
+                        key=f"new_{eid}_{lang}", placeholder="# Título de la nota\n\n*Bajada…*\n\nPrimer párrafo…")
+    if st.button("Guardar nota", type="primary", key=f"savenew_{lang}", disabled=not text.strip()):
+        md.write_text(text.strip() + "\n", encoding="utf-8")
+        md_to_docx(md, dx)
+        if lang == "es":  # refresh the automatic quote/name check against the transcript
+            try:
+                cli.process([edir / "raw"], move_raw=False)
+            except Exception:
+                pass
+        save(stg, f"Evento {eid}: nota ({lang}) agregada")
+        st.success("Nota guardada.")
+        st.rerun()
+
+
 def page_event():
     evs = events()
     if not evs:
@@ -252,7 +294,7 @@ def page_event():
     st.session_state["event"] = eid
     edir = paths.events_dir() / eid
 
-    components.html(dashboard_html(eid), height=2900, scrolling=True)
+    show_dashboard(eid, 2900)
 
     # ---- article
     st.subheader("Nota informativa")
@@ -262,9 +304,7 @@ def page_event():
             md = edir / f"summary_{lang}.md"
             dx = edir / f"summary_{lang}.docx"
             if not md.exists():
-                prompt = edir / "prompt_es.md"
-                st.info("Aún no hay nota en este idioma." +
-                        (" Se guardó el texto para pedirla a Claude manualmente (prompt_es.md)." if prompt.exists() else ""))
+                manual_article(eid, edir, lang, md, dx)
                 continue
             c1, c2 = st.columns([1, 1])
             if dx.exists():

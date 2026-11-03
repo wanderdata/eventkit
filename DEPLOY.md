@@ -39,7 +39,7 @@ github.com → avatar → **Settings → Developer settings → Personal access 
 2. **Create app** → deploy from GitHub: repository `wanderdata/eventkit`, branch `main`, main file `streamlit_app.py`. Under *App URL*, choose a name such as `cepal-webinars`.
 3. **Advanced settings → Secrets**: paste the following, with your values:
    ```toml
-   ANTHROPIC_API_KEY = "sk-ant-..."
+   ANTHROPIC_API_KEY = "sk-ant-..."   # optional – leave this line out to write articles yourself
    EVENTKIT_SALT = "..."            # generate once, keep a copy, never change
    EVENTKIT_DATA_REPO = "wanderdata/event-tracker-data"
    EVENTKIT_DATA_TOKEN = "github_pat_..."
@@ -57,6 +57,14 @@ Streamlit's free tier allows one private app per account.
 2. App → **Subir evento** → drag them all in → check the list → (optional title/speaker) → **Procesar evento**.
 3. 1–3 minutes later, open **Por evento** and read **Revisión automática** first: it flags quotes that don't match the transcript and names to verify.
 4. Fix the article with **Editar** if needed. The Word file and dashboard update when you save.
+
+## Without a Claude API key (manual articles)
+Leave `ANTHROPIC_API_KEY` out of the secrets. Everything else works the same. For each event without an article, **Por evento → Nota informativa** offers:
+- **Descargar el texto preparado para Claude**: the transcript, chat, slides and style instructions in one file, ready to paste into Claude for a draft;
+- **Párrafo de cifras**: the participation paragraph, generated from the data, to copy into your article;
+- a box to **paste the final article** (Spanish and English tabs). Saving creates the Word file and runs the automatic quote check.
+
+You can add the key later; new events then get their article written automatically.
 
 ## Updating the app
 Push to `main` of `wanderdata/eventkit` and Streamlit redeploys automatically. The data repo is unaffected.
