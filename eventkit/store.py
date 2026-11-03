@@ -113,3 +113,16 @@ def series_metrics(att: pd.DataFrame, events: list[dict]) -> dict:
         "attendance_frequency": {str(k): int(v) for k, v in counts.value_counts().sort_index().items()},
         "per_event": per_event,
     }
+
+
+def delete_event(event_id: str):
+    """Remove an event everywhere (folder, events.json, attendance)."""
+    import shutil
+    evs = [e for e in load_events() if e["id"] != event_id]
+    paths.data_dir().mkdir(parents=True, exist_ok=True)
+    _events_json().write_text(json.dumps(evs, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
+    att = load_attendance()
+    att[att.event_id != event_id].to_csv(_attendance(), index=False)
+    d = paths.events_dir() / event_id
+    if d.exists():
+        shutil.rmtree(d)

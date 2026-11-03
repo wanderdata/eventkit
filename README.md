@@ -13,7 +13,20 @@ github.com/wanderdata/eventkit          ← this repo: code only (public)
 git.cepal.org/.../<series-project>      ← one private project per series: inbox/, events/, data/, config/
 ```
 
-## Quick start
+## Web app (upload page + dashboards)
+
+`streamlit_app.py` is a Spanish web app on top of the same code:
+**Subir evento** (drag all files of one event), **Toda la serie** (series dashboard),
+**Por evento** (dropdown → KPI panel, charts, article with editing and Word downloads,
+automatic review, the event's original files). Event data is kept in a separate private
+GitHub repository. See **[DEPLOY.md](DEPLOY.md)** to put it online with Streamlit Community Cloud.
+
+```bash
+pip install -e ".[app]"
+streamlit run streamlit_app.py      # local folder ./event-data unless EVENTKIT_DATA_REPO is set
+```
+
+## Quick start (command line)
 
 ```bash
 pip install "eventkit @ git+https://github.com/wanderdata/eventkit@v0.1.0"

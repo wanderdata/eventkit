@@ -71,6 +71,8 @@ summary{cursor:pointer;color:var(--ink2);font-size:13.5px}
 .facts ul{margin:0;padding-left:18px}
 .facts li{margin:3px 0}
 @media (max-width:520px){.kpi .v{font-size:22px}h1{font-size:19px}}
+.embed header,.embed .tabs,.embed .btns,.embed .article-card{display:none!important}
+.embed main{padding-top:4px}
 @media print{
   body{background:#fff}
   .tabs,.pbtn,.btns,details,.article{display:none!important}
@@ -93,7 +95,8 @@ const T = {
  es:{series:"Toda la serie",events:"Sesiones",unique:"Personas únicas",uniqueN:"asistentes distintos en la serie",regs:"Inscripciones",conv:"Tasa de asistencia",convN:"inscritos que se conectaron",twoplus:"Asistieron a 2+ sesiones",women:"Mujeres",lac:"América Latina y el Caribe",participants:"Participantes",participantsN:"conexiones únicas, incl. organización",attendees:"Público",peak:"Pico simultáneo",median:"Minutos conectados (mediana)",stayed:"Se quedaron más de la mitad",countries:"Países",questions:"Preguntas en el chat",regVsPart:"Inscritos y participantes por sesión",regVsPartH:"Personas únicas por sesión",newRet:"Público nuevo y recurrente",newRetH:"Recurrente = asistió a una sesión anterior de la serie",new:"Nuevo",ret:"Recurrente",tableT:"Resumen por sesión",date:"Fecha",session:"Sesión",speaker:"Ponente",over:"Personas conectadas durante la sesión",overH:"Público (sin organización ni panel), cada 2 minutos",byCountry:"Participantes por país",byCountryH:"Según el formulario de inscripción; % sobre participantes con país conocido",bySector:"Participantes por sector",bySectorH:"Clasificado a partir de la organización y el correo; editable en config/org_sectors.csv",byGender:"Participantes por género",funnel:"Inscritos y asistentes por país",funnelH:"Los 12 países con más inscripciones",registered:"Inscritos",attended:"Asistieron",summary:"Nota informativa",download:"Descargar Word",review:"Revisión automática (citas y nombres)",noSummary:"Aún no hay nota para esta sesión.",F:"Mujeres",M:"Hombres",O:"Otro / prefiere no decir",others:"Otros",usNote:n=>`Se descartaron ${n} respuestas «Estados Unidos» que Webex preselecciona en el formulario (país desconocido salvo que el correo indique otro país).`,inferredNote:n=>`País inferido desde el dominio del correo para ${n} personas.`,of:"de",min:"min",people:"personas"}
 };
 const lang = "es";
-let tab = decodeURIComponent(location.hash.slice(1)) || "series";
+const EMBED = !!window.EK_EMBED;
+let tab = window.EK_TAB || decodeURIComponent(location.hash.slice(1)) || "series";
 const $ = (s,el=document)=>el.querySelector(s);
 const h = (tag,attrs={},...kids)=>{const e=document.createElement(tag);for(const[k,v]of Object.entries(attrs)){if(k==="class")e.className=v;else if(k==="text")e.textContent=v;else e.setAttribute(k,v)}for(const k of kids)if(k!=null)e.append(k);return e};
 const NS="http://www.w3.org/2000/svg";
@@ -273,11 +276,12 @@ function eventView(e){
   if(txt){art.innerHTML=md(txt)}else art.append(h("p",{class:"empty",text:t("noSummary")}));
   const btns=h("div",{class:"btns"},...Object.entries(e.docx||{}).map(([l,f])=>h("a",{class:"btn",href:f,download:""},`${t("download")} (${l==="es"?"español":"inglés"})`)));
   const rev=e.review?h("details",{},h("summary",{text:t("review")}),h("div",{class:"review",text:e.review})):null;
-  charts.push(h("section",{class:"card",style:"grid-column:1/-1"},h("h2",{text:t("summary")}),btns,art,rev));
+  charts.push(h("section",{class:"card article-card",style:"grid-column:1/-1"},h("h2",{text:t("summary")}),btns,art,rev));
   return [head,factsBox,...kp,...notes.map(n=>h("div",{class:"note",text:n})),h("div",{class:"grid"},...charts)];
 }
 
 function render(){
+  if(EMBED)document.body.classList.add("embed");
   document.documentElement.lang=lang;
   const C=DATA.config||{};
   $("#title").textContent=(lang==="es"?C.dashboard_title_es:C.dashboard_title_en)||"Webinars";

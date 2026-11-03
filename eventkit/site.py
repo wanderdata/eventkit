@@ -26,6 +26,12 @@ def _country_en():
     return {k: v["en"] for k, v in data.items()}
 
 
+def embed_html(index_html: str, tab: str = "series") -> str:
+    """Dashboard HTML for embedding in another app: no header/tabs, opens on `tab`."""
+    inject = f"window.EK_EMBED=true;window.EK_TAB={json.dumps(tab)};"
+    return index_html.replace("const DATA =", inject + "const DATA =", 1)
+
+
 def build_site(out: Path | None = None) -> Path:
     out = out or paths.public_dir()
     events = store.load_events()

@@ -1,0 +1,321 @@
+"""Plataforma de webinars: subir archivos de un evento, tablero de la serie y tablero por evento.
+
+Run locally:   streamlit run streamlit_app.py
+Deploy:        Streamlit Community Cloud → this repo → streamlit_app.py (see DEPLOY.md)
+"""
+from __future__ import annotations
+
+import io
+import json
+import os
+import re
+import shutil
+import tempfile
+import zipfile
+from pathlib import Path
+
+import streamlit as st
+import streamlit.components.v1 as components
+
+st.set_page_config(page_title="Webinars · eventos", page_icon="📊", layout="wide")
+
+# ---------------------------------------------------------------- settings
+for key in ("ANTHROPIC_API_KEY", "EVENTKIT_SALT", "EVENTKIT_DATA_REPO", "EVENTKIT_DATA_TOKEN",
+            "EVENTKIT_DATA_BRANCH", "EVENTKIT_MODEL", "EVENTKIT_HOME"):
+    try:
+        if key in st.secrets and not os.environ.get(key):
+            os.environ[key] = str(st.secrets[key])
+    except Exception:  # no secrets file locally
+        pass
+
+from eventkit import cli, paths, store as S, summarize as SUM  # noqa: E402  (after env is set)
+from eventkit import normalize as N  # noqa: E402
+from eventkit import parsers as P  # noqa: E402
+from eventkit.docx_out import md_to_docx  # noqa: E402
+from eventkit.site import build_site, embed_html  # noqa: E402
+from eventkit.storage import get_store  # noqa: E402
+
+KIND_LABEL = {
+    "participants": "Informe de participantes",
+    "registration": "Informe de inscripción",
+    "transcript": "Transcripción",
+    "chat": "Chat",
+    "ai_summary": "Resumen automático de Webex",
+    "slides": "Presentación",
+    "event_yml": "Datos manuales (event.yml)",
+    "docx": "Documento Word (no se usa)",
+    "unknown": "No reconocido (se ignora)",
+}
+EXPECTED = ["participants", "registration", "transcript", "chat", "slides", "ai_summary"]
+REQUIRED = {"participants"}
+
+
+# ---------------------------------------------------------------- storage
+@st.cache_resource
+def _store():
+    return get_store()
+
+
+def open_store(force=False):
+    """Sync the data store once per session (or on demand) and point eventkit at it."""
+    stg = _store()
+    if force or not st.session_state.get("synced"):
+        stg.sync()
+        st.session_state["synced"] = True
+        N._org_cache.cache_clear()
+        N.sector_rules.cache_clear()
+        N._countries.cache_clear()
+    paths.set_home(stg.root)
+    _check_salt(stg)
+    if not (paths.public_dir() / "index.html").exists():
+        build_site()
+    return stg
+
+
+def _check_salt(stg):
+    """Anonymous IDs depend on EVENTKIT_SALT. If the salt differs from the one the data was
+    built with (e.g. data prepared elsewhere), recompute every event so returning attendees match."""
+    import hashlib
+    salt = os.environ.get("EVENTKIT_SALT")
+    if not salt:
+        return
+    fp = hashlib.sha256(("eventkit-fingerprint:" + salt).encode()).hexdigest()[:16]
+    f = paths.data_dir() / "salt_fingerprint.txt"
+    if f.exists() and f.read_text().strip() == fp:
+        return
+    if S.load_events():
+        with st.spinner("Preparando los datos con la clave de esta instalación (solo la primera vez)…"):
+            cli.rebuild()
+    paths.data_dir().mkdir(parents=True, exist_ok=True)
+    f.write_text(fp)
+    save(stg, "Recalcular identificadores anónimos con la clave de esta instalación")
+
+
+def save(stg, message):
+    build_site()
+    try:
+        pushed = stg.save(message)
+    except Exception as e:  # keep the app usable; tell the user
+        st.error(f"No se pudo guardar en el repositorio de datos: {e}")
+        return False
+    return pushed
+
+
+def dashboard_html(tab="series") -> str:
+    p = paths.public_dir() / "index.html"
+    return embed_html(p.read_text(encoding="utf-8"), tab) if p.exists() else "<p>Sin datos aún.</p>"
+
+
+def events():
+    return list(reversed(S.load_events()))  # newest first
+
+
+def event_label(e):
+    return f"{e.get('date', e['id'])} · {e.get('title_es') or e.get('webinar_name', '')}"
+
+
+def strip_comments(md: str) -> str:
+    """Hide the auto-generated markers in the article."""
+    return re.sub(r"<!--.*?-->\n?", "", md, flags=re.S)
+
+
+# ---------------------------------------------------------------- guards
+stg = open_store()
+if stg.kind == "git" and not os.environ.get("EVENTKIT_SALT"):
+    st.error("Falta el secreto EVENTKIT_SALT. Agrégalo en la configuración de la app (Secrets) antes de usarla.")
+    st.stop()
+
+cfg = SUM.series_config()
+
+# ---------------------------------------------------------------- sidebar
+with st.sidebar:
+    st.markdown(f"### {cfg.get('dashboard_title_es', 'Webinars')}")
+    st.caption(cfg.get("series_name_es", ""))
+    page = st.radio("Ir a", ["⬆️ Subir evento", "📊 Toda la serie", "🗓️ Por evento"],
+                    key="page", label_visibility="collapsed")
+    st.divider()
+    if st.button("🔄 Actualizar datos", use_container_width=True):
+        open_store(force=True)
+        build_site()
+        st.rerun()
+    st.caption(f"Datos: {stg.describe()}")
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        st.warning("Sin ANTHROPIC_API_KEY: las notas no se redactan automáticamente.", icon="⚠️")
+
+
+# ================================================================ upload
+def page_upload():
+    st.title("Subir un evento")
+    st.write("Arrastra **todos** los archivos del webinar juntos (o un .zip). Los nombres no importan: "
+             "la plataforma reconoce cada archivo por su contenido.")
+    with st.expander("¿Qué archivos descargar de Webex?"):
+        st.markdown(
+            "- **Informe de participantes** (.csv/.xlsx) — *obligatorio*\n"
+            "- **Informe de inscripción** de Webex o exportación de Microsoft Forms (.csv/.xlsx)\n"
+            "- **Transcripción** (.txt) · **Chat** (.txt) · **Resumen de la reunión** (.txt)\n"
+            "- **Presentación** del ponente (.pptx o .pdf)")
+
+    files = st.file_uploader("Archivos del evento", accept_multiple_files=True,
+                             type=["csv", "xlsx", "xls", "txt", "pptx", "pdf", "zip", "yml", "yaml", "docx"],
+                             key=f"up_{st.session_state.get('up_n', 0)}")
+    if not files:
+        return
+
+    tmp = Path(tempfile.mkdtemp(prefix="evento_"))
+    for f in files:
+        (tmp / f.name).write_bytes(f.getbuffer())
+    found = cli.classify_files(cli._expand([tmp]))
+
+    rows = []
+    for k in EXPECTED:
+        names = ", ".join(p.name for p in found.get(k, []))
+        icon = "✅" if names else ("❌" if k in REQUIRED else "➖")
+        rows.append({"": icon, "Archivo": KIND_LABEL[k], "Detectado": names or ("falta" if k in REQUIRED else "no incluido")})
+    for k in ("event_yml", "docx", "unknown"):
+        if found.get(k):
+            rows.append({"": "ℹ️", "Archivo": KIND_LABEL[k], "Detectado": ", ".join(p.name for p in found[k])})
+    st.dataframe(rows, hide_index=True, use_container_width=True)
+
+    if not found.get("participants"):
+        st.error("Falta el **informe de participantes** de Webex: sin él no se puede crear el evento.")
+        return
+
+    _, meta, _ = P.read_participants(found["participants"][0])
+    event_id = meta.planned_start.strftime("%Y-%m-%d")
+    exists = (paths.events_dir() / event_id).exists()
+    st.info(f"**Evento detectado:** {event_id} — {meta.webinar_name}")
+    if exists:
+        st.warning("Ya existe un evento con esta fecha. Se actualizarán sus datos; la nota existente se conserva "
+                   "salvo que marques «Reescribir la nota».")
+
+    with st.form("procesar"):
+        st.markdown("**Datos opcionales** (si los dejas vacíos se detectan de los archivos)")
+        c1, c2 = st.columns(2)
+        title_es = c1.text_input("Título de la sesión (español)")
+        title_en = c2.text_input("Título de la sesión (inglés)")
+        speaker = c1.text_input("Ponente")
+        affiliation = c2.text_input("Cargo e institución del ponente")
+        force = st.checkbox("Reescribir la nota aunque ya exista", value=False)
+        go = st.form_submit_button("Procesar evento", type="primary", use_container_width=True)
+    if not go:
+        return
+
+    overrides = {k: v for k, v in dict(title_es=title_es, title_en=title_en, speaker=speaker,
+                                       speaker_affiliation=affiliation).items() if v.strip()}
+    if overrides:
+        import yaml
+        (tmp / "event.yml").write_text(yaml.safe_dump(overrides, allow_unicode=True), encoding="utf-8")
+
+    with st.status("Procesando el evento…", expanded=True) as status:
+        st.write("Sincronizando datos…")
+        open_store(force=True)
+        st.write("Calculando estadísticas y redactando la nota (1–3 minutos)…")
+        try:
+            eid = cli.process([tmp], force_summary=force, move_raw=False)
+        except SystemExit as e:
+            status.update(label="Error", state="error")
+            st.error(str(e))
+            return
+        except Exception as e:
+            status.update(label="Error", state="error")
+            st.exception(e)
+            return
+        st.write("Guardando archivos y actualizando el tablero…")
+        save(stg, f"Evento {eid}: archivos y resultados")
+        status.update(label=f"Evento {eid} procesado", state="complete")
+    shutil.rmtree(tmp, ignore_errors=True)
+    st.session_state["up_n"] = st.session_state.get("up_n", 0) + 1
+    st.session_state["event"] = eid
+    st.success("Listo. Revisa el tablero del evento y la revisión automática de la nota.")
+    st.button("Ver el tablero del evento →", type="primary",
+              on_click=lambda: st.session_state.update(page="🗓️ Por evento"))
+
+
+# ================================================================ series
+def page_series():
+    st.title("Toda la serie")
+    if not S.load_events():
+        st.info("Todavía no hay eventos. Usa «Subir evento».")
+        return
+    components.html(dashboard_html("series"), height=1250, scrolling=True)
+
+
+# ================================================================ event
+def page_event():
+    evs = events()
+    if not evs:
+        st.info("Todavía no hay eventos. Usa «Subir evento».")
+        return
+    ids = [e["id"] for e in evs]
+    default = ids.index(st.session_state["event"]) if st.session_state.get("event") in ids else 0
+    eid = st.selectbox("Evento", ids, index=default, format_func=lambda i: event_label(next(e for e in evs if e["id"] == i)))
+    st.session_state["event"] = eid
+    edir = paths.events_dir() / eid
+
+    components.html(dashboard_html(eid), height=2900, scrolling=True)
+
+    # ---- article
+    st.subheader("Nota informativa")
+    tabs = st.tabs(["Español", "English"])
+    for tab, lang in zip(tabs, ("es", "en")):
+        with tab:
+            md = edir / f"summary_{lang}.md"
+            dx = edir / f"summary_{lang}.docx"
+            if not md.exists():
+                prompt = edir / "prompt_es.md"
+                st.info("Aún no hay nota en este idioma." +
+                        (" Se guardó el texto para pedirla a Claude manualmente (prompt_es.md)." if prompt.exists() else ""))
+                continue
+            c1, c2 = st.columns([1, 1])
+            if dx.exists():
+                c1.download_button(f"Descargar Word ({'español' if lang == 'es' else 'inglés'})", dx.read_bytes(),
+                                   file_name=f"{eid}_nota_{lang}.docx", use_container_width=True, key=f"dx_{lang}")
+            edit = c2.toggle("Editar", key=f"edit_{eid}_{lang}")
+            text = md.read_text(encoding="utf-8")
+            if edit:
+                new = st.text_area("Texto (markdown). No edites el párrafo de cifras: se actualiza solo.",
+                                   text, height=520, key=f"ta_{eid}_{lang}")
+                if st.button("Guardar cambios", type="primary", key=f"save_{lang}"):
+                    md.write_text(new, encoding="utf-8")
+                    md_to_docx(md, dx)
+                    save(stg, f"Evento {eid}: nota ({lang}) editada")
+                    st.success("Guardado. El Word y el tablero se actualizaron.")
+                    st.rerun()
+            else:
+                st.markdown(strip_comments(text))
+
+    rv = edir / "review.md"
+    if rv.exists():
+        with st.expander("Revisión automática (citas y nombres a verificar)"):
+            st.markdown(rv.read_text(encoding="utf-8"))
+
+    # ---- input files
+    st.subheader("Archivos del evento")
+    raw = sorted((edir / "raw").glob("*")) if (edir / "raw").exists() else []
+    if raw:
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+            for f in raw:
+                z.write(f, f.name)
+        st.download_button("Descargar todos los archivos (.zip)", buf.getvalue(), file_name=f"{eid}_archivos.zip")
+        for f in raw:
+            kind = KIND_LABEL.get(P.detect(f) or "unknown", "")
+            c1, c2, c3 = st.columns([5, 3, 2])
+            c1.write(f"`{f.name}`")
+            size = f.stat().st_size
+            c2.caption(f"{kind} · " + (f"{size / 1e6:.1f} MB" if size >= 1e6 else f"{max(1, size // 1000)} KB"))
+            c3.download_button("Descargar", f.read_bytes(), file_name=f.name, key=f"raw_{f.name}")
+    else:
+        st.caption("Sin archivos guardados.")
+
+    with st.expander("Eliminar este evento"):
+        st.write("Borra el evento, sus archivos y sus cifras de la serie. Queda en el historial del repositorio de datos.")
+        if st.checkbox(f"Confirmo que quiero eliminar {eid}", key=f"del_ok_{eid}") and \
+                st.button("Eliminar evento", type="secondary", key=f"del_{eid}"):
+            S.delete_event(eid)
+            save(stg, f"Evento {eid} eliminado")
+            st.session_state.pop("event", None)
+            st.rerun()
+
+
+{"⬆️ Subir evento": page_upload, "📊 Toda la serie": page_series, "🗓️ Por evento": page_event}[page]()

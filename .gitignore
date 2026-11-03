@@ -15,3 +15,6 @@ dist/
 .venv/
 .pytest_cache/
 .DS_Store
+
+.streamlit/secrets.toml
+event-data/

@@ -59,3 +59,40 @@ def test_returning_attendees(home, tmp_path):
     assert m["events"] == 2
     assert m["per_event"]["2026-06-12"]["returning"] > 0
     assert "@" not in (home / "data" / "attendance.csv").read_text()
+
+
+def test_git_store_roundtrip(tmp_path, monkeypatch):
+    import subprocess
+    from eventkit.storage import GitStore
+    bare = tmp_path / "remote.git"
+    subprocess.run(["git", "init", "--bare", "-b", "main", str(bare)], check=True, capture_output=True)
+    a = GitStore(f"file://{bare}", root=tmp_path / "a")
+    ra = a.sync()                                   # empty remote -> new history
+    (ra / "events").mkdir()
+    (ra / "events" / "x.txt").write_text("hola")
+    assert a.save("first") is True
+    assert a.save("nothing new") is False
+    b = GitStore(f"file://{bare}", root=tmp_path / "b")
+    assert (b.sync() / "events" / "x.txt").read_text() == "hola"
+    (b.root / "events" / "y.txt").write_text("b")
+    b.save("from b")
+    (ra / "events" / "z.txt").write_text("a")       # a is behind -> push must rebase
+    a.save("from a")
+    assert {p.name for p in (a.sync() / "events").iterdir()} == {"x.txt", "y.txt", "z.txt"}
+    assert ".eventkit_salt" in (a.root / ".gitignore").read_text()
+
+
+def test_app_starts_and_shows_pages(tmp_path, monkeypatch):
+    pytest.importorskip("streamlit")
+    from pathlib import Path
+    from streamlit.testing.v1 import AppTest
+    monkeypatch.setenv("EVENTKIT_HOME", str(tmp_path / "data"))
+    monkeypatch.delenv("EVENTKIT_DATA_REPO", raising=False)
+    monkeypatch.setenv("EVENTKIT_SALT", "test-salt")
+    app = Path(__file__).resolve().parent.parent / "streamlit_app.py"
+    at = AppTest.from_file(str(app), default_timeout=60).run()
+    assert not at.exception
+    assert any("Subir un evento" in t.value for t in at.title)
+    for page in ("📊 Toda la serie", "🗓️ Por evento"):
+        at.sidebar.radio[0].set_value(page).run()
+        assert not at.exception
