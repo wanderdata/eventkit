@@ -43,10 +43,13 @@ github.com → avatar → **Settings → Developer settings → Personal access 
    EVENTKIT_SALT = "..."            # generate once, keep a copy, never change
    EVENTKIT_DATA_REPO = "wanderdata/event-tracker-data"
    EVENTKIT_DATA_TOKEN = "github_pat_..."
+   APP_PASSWORD = "..."             # recommended; required if the code repo is public
    ```
    Generate the salt with `python -c "import secrets;print(secrets.token_hex(32))"`. In PowerShell without Python, use
    `-join ((1..64) | % { '{0:x}' -f (Get-Random -Max 16) })`.
 4. **Deploy**. The first start takes 2–4 minutes.
+
+**If Streamlit only offers public repositories:** make `wanderdata/eventkit` public (it contains code only) and set `APP_PASSWORD`. The app then shows a password screen before anything else, and the data repo stays private.
 
 Because `eventkit` is a private repo, the app is **private**: only people you invite can open it.
 Invite colleagues with **Share** (top right of the app) by e-mail; they sign in with Google or a one-time e-mailed link.

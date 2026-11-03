@@ -96,3 +96,21 @@ def test_app_starts_and_shows_pages(tmp_path, monkeypatch):
     for page in ("📊 Toda la serie", "🗓️ Por evento"):
         at.sidebar.radio[0].set_value(page).run()
         assert not at.exception
+
+
+def test_app_password_gate(tmp_path, monkeypatch):
+    pytest.importorskip("streamlit")
+    from pathlib import Path
+    from streamlit.testing.v1 import AppTest
+    monkeypatch.setenv("EVENTKIT_HOME", str(tmp_path / "data"))
+    monkeypatch.delenv("EVENTKIT_DATA_REPO", raising=False)
+    monkeypatch.setenv("APP_PASSWORD", "secreto")
+    app = Path(__file__).resolve().parent.parent / "streamlit_app.py"
+    at = AppTest.from_file(str(app), default_timeout=60).run()
+    assert not any("Subir un evento" in t.value for t in at.title)      # locked
+    at.text_input[0].set_value("mala")
+    at.button[0].click().run()
+    assert at.error and not any("Subir un evento" in t.value for t in at.title)
+    at.text_input[0].set_value("secreto")
+    at.button[0].click().run()
+    assert any("Subir un evento" in t.value for t in at.title)          # unlocked

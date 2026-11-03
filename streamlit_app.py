@@ -20,12 +20,33 @@ st.set_page_config(page_title="Webinars · eventos", page_icon="📊", layout="w
 
 # ---------------------------------------------------------------- settings
 for key in ("ANTHROPIC_API_KEY", "EVENTKIT_SALT", "EVENTKIT_DATA_REPO", "EVENTKIT_DATA_TOKEN",
-            "EVENTKIT_DATA_BRANCH", "EVENTKIT_MODEL", "EVENTKIT_HOME"):
+            "EVENTKIT_DATA_BRANCH", "EVENTKIT_MODEL", "EVENTKIT_HOME", "APP_PASSWORD"):
     try:
         if key in st.secrets and not os.environ.get(key):
             os.environ[key] = str(st.secrets[key])
     except Exception:  # no secrets file locally
         pass
+
+
+def _password_gate():
+    """If APP_PASSWORD is set, ask for it once per browser session before showing anything."""
+    import hmac
+    pw = os.environ.get("APP_PASSWORD")
+    if not pw or st.session_state.get("auth_ok"):
+        return
+    st.title("Webinars · acceso")
+    with st.form("login"):
+        given = st.text_input("Contraseña", type="password")
+        ok = st.form_submit_button("Entrar", type="primary")
+    if ok:
+        if hmac.compare_digest(given.encode(), pw.encode()):
+            st.session_state["auth_ok"] = True
+            st.rerun()
+        st.error("Contraseña incorrecta.")
+    st.stop()
+
+
+_password_gate()
 
 from eventkit import cli, paths, store as S, summarize as SUM  # noqa: E402  (after env is set)
 from eventkit import normalize as N  # noqa: E402
