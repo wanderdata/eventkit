@@ -337,11 +337,45 @@ def page_upload():
 
 
 # ================================================================ series
+@st.cache_data(show_spinner="Preparando la lista de correos…", max_entries=8)
+def _mailing(home: str, stamp: float, event_ids: tuple | None, only_attended: bool):
+    """Cached per data version (stamp) so the page stays fast."""
+    from eventkit import export
+    df = export.mailing_list(list(event_ids) if event_ids else None, only_attended=only_attended)
+    return len(df), export.to_excel(df), export.to_text(df)
+
+
+def _data_stamp() -> float:
+    f = paths.data_dir() / "events.json"
+    return f.stat().st_mtime if f.exists() else 0.0
+
+
+def mailing_buttons(scope: str, event_ids: tuple | None = None):
+    """Export unique e-mails (Excel with profile, or plain text one per line)."""
+    c0, c1, c2 = st.columns([2.2, 1.4, 1.4], vertical_alignment="bottom")
+    who = c0.segmented_control("Incluir", ["Inscritos y participantes", "Solo quienes asistieron"],
+                               key=f"mail_who_{scope}", default="Inscritos y participantes")
+    only = who == "Solo quienes asistieron"
+    n, xlsx, txt = _mailing(str(paths.home()), _data_stamp(), event_ids, only)
+    tag = "asistentes" if only else "todos"
+    c1.download_button(f"Lista de correos · Excel ({n})", xlsx, file_name=f"correos_{scope}_{tag}.xlsx",
+                       mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                       use_container_width=True, key=f"mx_{scope}_{tag}",
+                       help="Correos únicos con nombre, país, organización y sesiones inscritas/asistidas")
+    c2.download_button("Solo correos · texto", txt, file_name=f"correos_{scope}_{tag}.txt", mime="text/plain",
+                       use_container_width=True, key=f"mt_{scope}_{tag}",
+                       help="Un correo por línea, para pegar en Outlook (CCO) o en una herramienta de envíos")
+    st.caption("Contiene datos personales: úsala solo para comunicaciones de la serie y no la compartas fuera del equipo.")
+
+
 def page_series():
     st.title("Toda la serie")
     if not S.load_events():
         st.info("Todavía no hay eventos. Usa «Subir evento».")
         return
+    with st.container(border=True):
+        st.markdown("**Exportar correos de toda la serie** (sin duplicados)")
+        mailing_buttons("serie")
     show_dashboard("series", 1250)
 
 
@@ -432,6 +466,9 @@ def page_event():
             for f in raw:
                 z.write(f, f.name)
         st.download_button("Descargar todos los archivos (.zip)", buf.getvalue(), file_name=f"{eid}_archivos.zip")
+        with st.container(border=True):
+            st.markdown("**Exportar correos de este evento** (sin duplicados)")
+            mailing_buttons(eid, (eid,))
         for f in raw:
             kind = KIND_LABEL.get(P.detect(f) or "unknown", "")
             c1, c2, c3 = st.columns([5, 3, 2])

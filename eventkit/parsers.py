@@ -217,8 +217,14 @@ def read_registration(path: Path) -> pd.DataFrame:
     c_last = _col(df, "apellido", "last name")
     c_att = _col(df, "asistido", "attended")
 
-    name = df[c_full] if c_full else (
-        (df[c_first].fillna("") if c_first else "") + " " + (df[c_last].fillna("") if c_last else ""))
+    if c_full:
+        name = df[c_full]
+    else:
+        first = df[c_first].fillna("").astype(str).str.strip() if c_first else pd.Series("", index=df.index)
+        last = df[c_last].fillna("").astype(str).str.strip() if c_last else pd.Series("", index=df.index)
+        # Webex's first "Nombre" column often already holds the full name
+        name = pd.Series([f if (l and f.lower().endswith(l.lower())) else f"{f} {l}".strip()
+                          for f, l in zip(first, last)], index=df.index)
     d = pd.DataFrame({
         "email": df[c_email].map(norm_email),
         "name": pd.Series(name).astype(str).str.strip(),

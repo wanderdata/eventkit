@@ -123,3 +123,19 @@ def test_git_store_bad_remote_raises(tmp_path):
     s = GitStore(f"file://{tmp_path}/does-not-exist.git", root=tmp_path / "c")
     with pytest.raises(RuntimeError, match="No se puede acceder"):
         s.sync()
+
+
+def test_mailing_list_unique_across_events(home, tmp_path):
+    from eventkit import export
+    people = [f"p{i}@gmail.com" for i in range(80)]
+    cli.process([make(tmp_path / "a", date="2026-05-12", emails=people, n_att=40, seed=2)])
+    cli.process([make(tmp_path / "b", date="2026-06-12", emails=people[:50] + [f"n{i}@x.org" for i in range(10)],
+                      n_att=30, seed=3)])
+    df = export.mailing_list()
+    assert df.correo.is_unique and len(df) == 80 + 10 + 2          # + host/panelist
+    assert set(df.columns) == set(export.COLUMNS)
+    att = export.mailing_list(only_attended=True)
+    assert len(att) < len(df) and (att.sesiones_asistidas >= 1).all()
+    one = export.mailing_list(["2026-06-12"])
+    assert len(one) == 60 + 2
+    assert export.to_excel(df)[:2] == b"PK" and export.to_text(df).count(b"\n") == len(df)
