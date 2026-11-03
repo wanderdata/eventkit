@@ -64,7 +64,12 @@ class GitStore:
         return r
 
     def _remote_has_branch(self) -> bool:
+        self.root.parent.mkdir(parents=True, exist_ok=True)
         r = self._git("ls-remote", "--heads", self.url, self.branch, check=False, cwd=self.root.parent)
+        if r.returncode != 0:  # wrong token, repo name or no network: never fall back to an empty series
+            msg = (r.stderr or r.stdout).replace(self.url, self.display).strip()
+            raise RuntimeError(f"No se puede acceder al repositorio de datos {self.display}. "
+                               f"Revisa EVENTKIT_DATA_REPO y EVENTKIT_DATA_TOKEN. Detalle: {msg[-300:]}")
         return bool(r.stdout.strip())
 
     # -- API

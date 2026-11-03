@@ -152,7 +152,11 @@ def strip_comments(md: str) -> str:
 
 
 # ---------------------------------------------------------------- guards
-stg = open_store()
+try:
+    stg = open_store()
+except Exception as e:
+    st.error(f"No se pudieron cargar los datos: {e}")
+    st.stop()
 if stg.kind == "git" and not os.environ.get("EVENTKIT_SALT"):
     st.error("Falta el secreto EVENTKIT_SALT. Agrégalo en la configuración de la app (Secrets) antes de usarla.")
     st.stop()

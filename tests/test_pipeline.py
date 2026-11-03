@@ -114,3 +114,10 @@ def test_app_password_gate(tmp_path, monkeypatch):
     at.text_input[0].set_value("secreto")
     at.button[0].click().run()
     assert any("Subir un evento" in t.value for t in at.title)          # unlocked
+
+
+def test_git_store_bad_remote_raises(tmp_path):
+    from eventkit.storage import GitStore
+    s = GitStore(f"file://{tmp_path}/does-not-exist.git", root=tmp_path / "c")
+    with pytest.raises(RuntimeError, match="No se puede acceder"):
+        s.sync()
