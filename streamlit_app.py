@@ -485,6 +485,22 @@ def _event_pdf(home: str, stamp: float, eid: str) -> bytes:
     return reports.event_pdf(eid)
 
 
+def pdf_box(eid: str):
+    """Build the one-page PDF only on request, and never let a failure break the page."""
+    key = f"pdf_{eid}"
+    if st.session_state.get(key) is None:
+        if st.button("Preparar ficha del evento (PDF, 1 página)", key=f"{key}_go",
+                     help="Resumen de una página: datos clave, indicadores, la sesión minuto a minuto, países, sectores y temas"):
+            try:
+                st.session_state[key] = _event_pdf(str(paths.home()), _data_stamp(), eid)
+                st.rerun()
+            except Exception as e:
+                st.warning(f"No se pudo generar el PDF ({type(e).__name__}: {e}).")
+    else:
+        st.download_button("Descargar ficha del evento (PDF)", st.session_state[key], file_name=f"ficha_{eid}.pdf",
+                           mime="application/pdf", type="primary", key=f"{key}_dl")
+
+
 def period_report_box():
     import datetime as _dt
     evs = S.load_events()
@@ -497,10 +513,13 @@ def period_report_box():
         sids = [x["id"] for x in CAT.series_list() if x["id"] in events_by_series()]
         chosen = c2.multiselect("Series (vacío = todas)", sids, format_func=series_label, key="rep_series")
         if c3.button("Preparar informe", use_container_width=True, key="rep_go"):
-            from eventkit import reports
             a, b = (rng if isinstance(rng, (tuple, list)) and len(rng) == 2 else (d0, d1))
-            st.session_state["rep_pdf"] = (reports.period_pdf(a.isoformat(), b.isoformat(), chosen or None),
-                                           f"informe_{a.isoformat()}_{b.isoformat()}.pdf")
+            try:
+                from eventkit import reports
+                st.session_state["rep_pdf"] = (reports.period_pdf(a.isoformat(), b.isoformat(), chosen or None),
+                                               f"informe_{a.isoformat()}_{b.isoformat()}.pdf")
+            except Exception as e:
+                st.warning(f"No se pudo generar el informe ({type(e).__name__}: {e}).")
         if st.session_state.get("rep_pdf"):
             data, name = st.session_state["rep_pdf"]
             st.download_button("Descargar informe", data, file_name=name, mime="application/pdf", type="primary", key="rep_dl")
@@ -577,9 +596,7 @@ def page_event():
     ids = [e["id"] for e in evs]
     default = ids.index(cur) if cur in ids else 0
     eid = c2.selectbox("Evento", ids, index=default, format_func=lambda i: event_label(next(e for e in evs if e["id"] == i)))
-    st.download_button("Descargar ficha del evento (PDF, 1 página)", _event_pdf(str(paths.home()), _data_stamp(), eid),
-                       file_name=f"ficha_{eid}.pdf", mime="application/pdf", key=f"pdf_{eid}",
-                       help="Resumen de una página: datos clave, indicadores, la sesión minuto a minuto, países, sectores y temas")
+    pdf_box(eid)
     st.session_state["event"] = eid
     edir = paths.events_dir() / eid
 
