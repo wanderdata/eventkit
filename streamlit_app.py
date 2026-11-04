@@ -823,3 +823,18 @@ def page_admin():
 
 {"Subir evento": page_upload, "Todos los eventos": page_global, "Por serie": page_series,
  "Por evento": page_event, "Administrar": page_admin}[page]()
+
+
+@st.cache_resource
+def _app_version() -> str:
+    import subprocess
+    try:
+        out = subprocess.run(["git", "log", "-1", "--format=%h · %cd", "--date=format:%d/%m/%Y %H:%M"],
+                             cwd=Path(__file__).parent, capture_output=True, text=True, timeout=5)
+        return out.stdout.strip()
+    except Exception:
+        return ""
+
+
+if _app_version():
+    st.caption(f"Versión de la aplicación: {_app_version()}")
