@@ -323,11 +323,11 @@ def page_upload():
         st.markdown(
             "- **Informe de participantes** (.csv/.xlsx) — *obligatorio*\n"
             "- **Informe de inscripción** de Webex o exportación de Microsoft Forms (.csv/.xlsx)\n"
-            "- **Transcripción** (.txt) · **Chat** (.txt) · **Resumen de la reunión** (.txt)\n"
+            "- **Transcripción** (.txt o .vtt) · **Chat** (.txt) · **Resumen de la reunión** (.txt)\n"
             "- **Presentación** del ponente (.pptx o .pdf)")
 
     files = st.file_uploader("Archivos del evento", accept_multiple_files=True,
-                             type=["csv", "xlsx", "xls", "txt", "pptx", "pdf", "zip", "yml", "yaml", "docx"],
+                             type=["csv", "xlsx", "xls", "txt", "vtt", "pptx", "pdf", "zip", "yml", "yaml", "docx"],
                              key=f"up_{st.session_state.get('up_n', 0)}")
     if not files:
         return

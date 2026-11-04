@@ -8,6 +8,7 @@ Supported inputs
   registration   Webex registration report    (.csv / .xlsx)
                  Microsoft Forms export        (.xlsx)
   transcript     Webex transcript              (.txt  "h:mm:ss : Speaker : text")
+                 or WebVTT captions             (.vtt  Webex / Teams / Zoom speaker styles)
   chat           Webex chat                    (.txt  "YYYY-MM-DD HH:MM : Name : text")
   ai_summary     Webex AI meeting summary      (.txt  starts "Meeting summary"/"Resumen de la reunión")
   slides         .pptx or .pdf
@@ -119,6 +120,8 @@ def detect(path: Path) -> str | None:
         if "estado de registro" in cols or "registration status" in cols:
             return "registration"
         return None
+    if suf == ".vtt":
+        return "transcript"
     if suf == ".txt":
         head = path.read_text(encoding="utf-8-sig", errors="replace")[:4000]
         first = norm_text(head.splitlines()[0] if head.strip() else "")
@@ -264,7 +267,53 @@ class Utterance:
     text: str
 
 
+VTT_TIME = re.compile(r"^(\d{1,2}:)?\d{2}:\d{2}[.,]\d{1,3}\s+-->\s+")
+VTT_VOICE = re.compile(r"<v(?:\.[^ >]*)?\s+([^>]+)>")
+VTT_CUE_NAME = re.compile(r'^\d+\s+"([^"]+)"')          # Webex: 12 "Jane Doe" (123456)
+VTT_PREFIX = re.compile(r"^([^:<>]{2,60}?):\s+(.+)$")     # Zoom / Webex: "Jane Doe: text"
+
+
+def read_vtt(path: Path) -> list[Utterance]:
+    """WebVTT captions. The speaker comes from <v Name> (Teams), the cue id line (Webex)
+    or a "Name: text" prefix (Zoom, Webex); otherwise it is left blank."""
+    out, cue_name = [], ""
+    lines = path.read_text(encoding="utf-8-sig", errors="replace").splitlines()
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        if VTT_TIME.match(line):
+            t = int(_secs(re.split(r"[.,]", line.split("-->")[0].strip())[0]))
+            body = []
+            i += 1
+            while i < len(lines) and lines[i].strip():
+                body.append(lines[i].strip())
+                i += 1
+            raw = " ".join(body)
+            m = VTT_VOICE.search(raw)
+            speaker = m.group(1).strip() if m else ""
+            text = strip_html(re.sub(r"</?v[^>]*>", "", raw))
+            if not speaker:
+                m = VTT_PREFIX.match(text)
+                if m and not re.search(r"https?$", m.group(1)):
+                    speaker, text = m.group(1).strip(), m.group(2).strip()
+            speaker = speaker or cue_name
+            cue_name = ""
+            if not text:
+                continue
+            if out and out[-1].speaker == speaker and t - out[-1].t < 60 and len(out[-1].text) < 1500:
+                out[-1].text += " " + text                      # captions split sentences into short cues
+            else:
+                out.append(Utterance(t, speaker, text))
+            continue
+        m = VTT_CUE_NAME.match(line)
+        cue_name = m.group(1) if m else (cue_name if not line else "")
+        i += 1
+    return out
+
+
 def read_transcript(path: Path) -> list[Utterance]:
+    if path.suffix.lower() == ".vtt":
+        return read_vtt(path)
     out = []
     for line in path.read_text(encoding="utf-8-sig", errors="replace").splitlines():
         m = TS_RE.match(line.strip())

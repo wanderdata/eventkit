@@ -206,3 +206,23 @@ def test_phases_on_synthetic_transcript():
     ph = C.phases(u, meta)
     assert [p["key"] for p in ph] == ["bienvenida", "presentacion", "preguntas", "cierre"]
     assert 25 <= next(p for p in ph if p["key"] == "presentacion")["minutes"] <= 35
+
+
+@pytest.mark.parametrize("cue", [
+    '1 "Ana Pérez" (991)\n00:00:01.000 --> 00:00:03.000\nAna Pérez: Hola a todos,\n\n'
+    '2 "Ana Pérez" (991)\n00:00:03.500 --> 00:00:05.000\nAna Pérez: bienvenidos.\n\n'
+    '3 "Luis Soto" (992)\n00:01:10.000 --> 00:01:12.000\nLuis Soto: Gracias, Ana.\n',          # Webex
+    '00:00:01.000 --> 00:00:03.000\n<v Ana Pérez>Hola a todos,</v>\n\n'
+    '00:00:03.500 --> 00:00:05.000\n<v Ana Pérez>bienvenidos.</v>\n\n'
+    '00:01:10.000 --> 00:01:12.000\n<v.loud Luis Soto>Gracias, Ana.</v>\n',                      # Teams
+    '1\n00:00:01,000 --> 00:00:03,000\nAna Pérez: Hola a todos,\n\n'
+    '2\n00:00:03,500 --> 00:00:05,000\nAna Pérez: bienvenidos.\n\n'
+    '3\n01:10.000 --> 01:12.000\nLuis Soto: Gracias, Ana.\n',                                     # Zoom
+])
+def test_vtt_transcript(tmp_path, cue):
+    f = tmp_path / "captions.vtt"
+    f.write_text("WEBVTT\n\n" + cue, encoding="utf-8")
+    assert P.detect(f) == "transcript"
+    u = P.read_transcript(f)
+    assert [(x.t, x.speaker, x.text) for x in u] == [(1, "Ana Pérez", "Hola a todos, bienvenidos."),
+                                                    (70, "Luis Soto", "Gracias, Ana.")]
