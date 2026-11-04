@@ -1,26 +1,31 @@
 # eventkit
 
-Turn the files Webex exports after a webinar into:
+Turn the files Webex (or Teams/Zoom captions) produce after an event into:
 
-1. a **news article in Spanish and English** written by Claude (with Word downloads and an automatic check of quotes and names);
-2. **participation statistics** for the event: registrations, show-up rate, countries, gender, sector, time connected, chat activity;
-3. a **dashboard in Spanish** (static HTML for GitLab Pages): one KPI panel per event (reach, engagement, audience profile, change vs. the previous session, key facts in plain Spanish, printable as PDF) plus a series view that tracks all events together, including returning attendees. Each event has its own link (`…/#2026-10-20`).
+1. **participation statistics**: registrations, show-up rate, countries, gender, sector, time connected, returning people;
+2. **what happened in the session**: phases (welcome, presentation, Q&A, closing) from the transcript, arrivals,
+   departures and chat activity minute by minute, and the topics of the audience's questions;
+3. **dashboards in Spanish** for all events, each series and each event;
+4. an **article in Spanish and English** (written by hand and uploaded, or drafted by Claude when an API key is set),
+   with Word downloads and an automatic check of quotes and names;
+5. **PDF reports**: a one-page summary per event and a report for any period;
+6. a **mailing list** of unique e-mails.
 
-The tool holds **no data**. Each webinar series lives in its own private folder or repository (a *series folder*), and that's where you run `eventkit`.
+A plain-language guide for colleagues is kept as a separate document ("Event platform: what it does, in plain language").
+
+The tool holds **no data**. Event files live in a separate private folder or repository:
 
 ```
-github.com/wanderdata/eventkit          ← this repo: code only (public)
-git.cepal.org/.../<series-project>      ← one private project per series: inbox/, events/, data/, config/
+github.com/wanderdata/eventkit              ← this repo: code only (public)
+github.com/wanderdata/event-tracker-data    ← private: events/, data/, config/ (personal data)
 ```
 
 ## Web app (upload page + dashboards)
 
 `streamlit_app.py` is a Spanish web app on top of the same code. Events belong to a **series** and have a **type**
-(`config/catalog.yml`, per event `events/<id>/meta.yml`); dashboards exist for all events, per series and per event:
-**Subir evento** (drag all files of one event), **Toda la serie** (series dashboard),
-**Por evento** (dropdown → KPI panel, charts, article with editing and Word downloads,
-automatic review, the event's original files). Event data is kept in a separate private
-GitHub repository. See **[DEPLOY.md](DEPLOY.md)** to put it online with Streamlit Community Cloud.
+(`config/catalog.yml`, per event `events/<id>/meta.yml`). Pages: **Subir evento**, **Todos los eventos**,
+**Por serie**, **Por evento**, **Administrar** (details in [DEPLOY.md](DEPLOY.md), which also explains how to put it
+online with Streamlit Community Cloud).
 
 ```bash
 pip install -e ".[app]"
@@ -48,11 +53,12 @@ Without an API key everything except the article runs. `events/<id>/prompt_es.md
 |---|---|
 | Webex participant report (.csv/.xlsx) | **Required.** Attendance, minutes, timeline, event date |
 | Webex registration report, or Microsoft Forms export | Country, gender, organization, show-up rate |
-| Transcript (.txt) | Article content, quote checking |
-| Chat (.txt) | Questions, links, next-session announcement |
+| Transcript: Webex .txt, or .vtt captions (Webex, Teams, Zoom) | Session phases, article content, quote checking. A transcript clearly shorter than the webinar (a late-starting recording) is aligned on the webinar's end |
+| Chat: Webex export (.txt), or the chat copied from the recording page (.txt, "Ayer, 9:01" blocks) | Messages, questions and their topics (`topics.yml`) |
 | Slides (.pptx/.pdf) | Authoritative spelling of names and figures |
 | Webex AI summary (.txt) | Orientation only |
-| `event.yml` (optional) | Manual facts: title, speaker… |
+| Ready-made article (.md; `_es` / `_en` in the name, or detected) | Used as the event's article |
+| `event.yml` (optional) | Manual facts: title, speaker, series, type… |
 
 ## Commands
 
@@ -63,6 +69,7 @@ Without an API key everything except the article runs. `events/<id>/prompt_es.md
 | `eventkit rebuild [--force-summary]` | recompute all events from `events/*/raw` |
 | `eventkit site` | rebuild the dashboard |
 | `eventkit docx` | re-export Word files after editing `summary_*.md` |
+| `eventkit report event ID` / `report period --from --to --series` | PDF: one-page event summary / period report |
 
 All commands accept `--home DIR` (or `$EVENTKIT_HOME`).
 
@@ -89,10 +96,12 @@ public/index.html           dashboard
 - **Sector**: `org_sectors.csv` → e-mail domain (.gob, .edu, un.org…) → keywords (`sectors.yml`) → Claude.
 - **Returning attendees** use the anonymous ID, so `EVENTKIT_SALT` must never change.
 - The participation paragraph of each article is generated from these numbers, never by the model.
+- **Phases**: the main speaker (most words after the scheduled start) → their longest stretch is the presentation; Q&A runs to their last answer of 200+ words.
+- **Topics**: keywords in `topics.yml` (Spanish and English); "no visible answer" = under 40% of the question's terms appear in the Q&A, checked only when question and talk share a language.
 
 ## Privacy
 
-The dashboard and `data/` contain aggregates and anonymous IDs only. The raw exports (`events/*/raw`) contain personal data and must stay in a private repository. Transcript, chat and slide text are sent to the Claude API to write the article. Organization names (without people's names) are sent to classify sectors.
+The dashboard and `data/` contain aggregates and anonymous IDs only. The raw exports (`events/*/raw`) contain personal data and must stay in a private repository. Only when `ANTHROPIC_API_KEY` is set: transcript, chat and slide text are sent to the Claude API to draft the article, and organization names (without people's names) to classify sectors.
 
 ## Development
 
