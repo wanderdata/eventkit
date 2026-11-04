@@ -144,6 +144,16 @@ def process(files: list[Path], force_summary=False, move_raw=True, event_id: str
         N._org_cache.cache_clear()
         s, p, regp = S.event_stats(people, raw_rows, meta, reg, chat)
 
+    # what happened during the session: phases, audience flow, topics of the questions
+    from . import content as C
+    staff = {N.norm_text(x) for x in p[p.role != "attendee"].display_name.dropna()}
+    ph = C.phases(utts, meta)
+    s["phases"] = C.public(ph)
+    s["flow"] = C.flows(p[p.role == "attendee"], s["timeline"], chat, staff, ph)
+    s["topics"] = C.question_topics(chat, staff, C.phase_text(utts, ph, "preguntas") + " " + C.phase_text(utts, ph, "cierre"))
+    for pt, f in zip(s["timeline"], s["flow"]):
+        pt["phase"] = f["phase"]
+
     ctx = SUM.make_context(meta, utts, chat, slides, ai_sum, p, overrides, series=ser, event_type=event_type)
     status = SUM.write_summaries(edir, ctx, s, force=force_summary)
     print(f"  summaries: {status}")
@@ -228,6 +238,16 @@ def main(argv=None):
     r.add_argument("--force-summary", action="store_true")
     sub.add_parser("site", help="rebuild the dashboard")
     sub.add_parser("docx", help="re-export Word files from the markdown summaries")
+    rp = sub.add_parser("report", help="PDF reports: one event, or a period")
+    rs = rp.add_subparsers(dest="kind", required=True)
+    re_ = rs.add_parser("event", help="one-page summary of an event")
+    re_.add_argument("event_id")
+    re_.add_argument("-o", "--out", type=Path)
+    rpp = rs.add_parser("period", help="report across events")
+    rpp.add_argument("--from", dest="start")
+    rpp.add_argument("--to", dest="end")
+    rpp.add_argument("--series", nargs="*")
+    rpp.add_argument("-o", "--out", type=Path)
     args = ap.parse_args(argv)
     paths.set_home(args.home)
 
@@ -255,6 +275,15 @@ def main(argv=None):
         build_site()
     elif args.cmd == "docx":
         export_docx()
+    elif args.cmd == "report":
+        from . import reports
+        if args.kind == "event":
+            data, out = reports.event_pdf(args.event_id), args.out or Path(f"ficha_{args.event_id}.pdf")
+        else:
+            data = reports.period_pdf(args.start, args.end, args.series)
+            out = args.out or Path(f"informe_{args.start or 'inicio'}_{args.end or 'hoy'}.pdf")
+        out.write_bytes(data)
+        print(f"  report → {out}")
 
 
 if __name__ == "__main__":

@@ -18,6 +18,8 @@ dependencies = [
   "python-pptx>=1.0",
   "pypdf>=4",
   "anthropic>=0.40",
+  "matplotlib>=3.8",
+  "reportlab>=4.0",
 ]
 
 [project.optional-dependencies]

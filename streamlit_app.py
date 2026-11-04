@@ -479,11 +479,39 @@ def mailing_buttons(scope: str, event_ids: tuple | None = None):
     st.caption("Contiene datos personales: úsala solo para comunicaciones de la CEPAL y no la compartas fuera del equipo.")
 
 
+@st.cache_data(show_spinner="Preparando la ficha…", max_entries=16)
+def _event_pdf(home: str, stamp: float, eid: str) -> bytes:
+    from eventkit import reports
+    return reports.event_pdf(eid)
+
+
+def period_report_box():
+    import datetime as _dt
+    evs = S.load_events()
+    d0 = _dt.date.fromisoformat(min(e["date"] for e in evs))
+    d1 = _dt.date.fromisoformat(max(e["date"] for e in evs))
+    with st.container(border=True):
+        st.markdown("**Informe del período** (PDF)")
+        c1, c2, c3 = st.columns([1.2, 2.4, 1.2], vertical_alignment="bottom")
+        rng = c1.date_input("Desde – hasta", (d0, d1), format="DD/MM/YYYY", key="rep_rng")
+        sids = [x["id"] for x in CAT.series_list() if x["id"] in events_by_series()]
+        chosen = c2.multiselect("Series (vacío = todas)", sids, format_func=series_label, key="rep_series")
+        if c3.button("Preparar informe", use_container_width=True, key="rep_go"):
+            from eventkit import reports
+            a, b = (rng if isinstance(rng, (tuple, list)) and len(rng) == 2 else (d0, d1))
+            st.session_state["rep_pdf"] = (reports.period_pdf(a.isoformat(), b.isoformat(), chosen or None),
+                                           f"informe_{a.isoformat()}_{b.isoformat()}.pdf")
+        if st.session_state.get("rep_pdf"):
+            data, name = st.session_state["rep_pdf"]
+            st.download_button("Descargar informe", data, file_name=name, mime="application/pdf", type="primary", key="rep_dl")
+
+
 def page_global():
     st.title("Todos los eventos")
     if not S.load_events():
         st.info("Todavía no hay eventos. Usa «Subir evento».")
         return
+    period_report_box()
     with st.container(border=True):
         st.markdown("**Exportar correos de todos los eventos** (sin duplicados)")
         mailing_buttons("todos")
@@ -549,6 +577,9 @@ def page_event():
     ids = [e["id"] for e in evs]
     default = ids.index(cur) if cur in ids else 0
     eid = c2.selectbox("Evento", ids, index=default, format_func=lambda i: event_label(next(e for e in evs if e["id"] == i)))
+    st.download_button("Descargar ficha del evento (PDF, 1 página)", _event_pdf(str(paths.home()), _data_stamp(), eid),
+                       file_name=f"ficha_{eid}.pdf", mime="application/pdf", key=f"pdf_{eid}",
+                       help="Resumen de una página: datos clave, indicadores, la sesión minuto a minuto, países, sectores y temas")
     st.session_state["event"] = eid
     edir = paths.events_dir() / eid
 

@@ -179,3 +179,30 @@ def test_new_indicators_present(home, tmp_path):
     assert e["stats_version"] == STATS_VERSION
     assert e["minutes_hist"] and e["registration_curve"]["points"] and "late_pct" in e
     assert all("m" in p for p in e["timeline"])
+
+
+def test_phases_topics_and_reports(home, tmp_path):
+    from eventkit import reports
+    cli.process([make(tmp_path / "x", date="2026-05-12", seed=12)])
+    e = store.load_events()[0]
+    assert "flow" in e and "topics" in e and "phases" in e
+    pdf = reports.event_pdf(e["id"])
+    assert pdf[:4] == b"%PDF" and len(pdf) > 10_000
+    rep = reports.period_pdf("2026-01-01", "2026-12-31")
+    assert rep[:4] == b"%PDF"
+    assert reports.period_pdf("2030-01-01", "2030-12-31")[:4] == b"%PDF"   # empty period still renders
+
+
+def test_phases_on_synthetic_transcript():
+    import pandas as pd
+    from eventkit import content as C
+    from eventkit.parsers import EventMeta, Utterance
+    meta = EventMeta("x", pd.Timestamp("2026-05-12 12:00"), pd.Timestamp("2026-05-12 11:00"), pd.Timestamp("2026-05-12 13:15"))
+    u = [Utterance(3600 + 10, "Mod", "bienvenidos " * 60)]
+    u += [Utterance(3600 + 300 + 30 * k, "Speaker", "contenido " * 80) for k in range(60)]      # 30 min talk
+    u += [Utterance(3600 + 300 + 1800 + 10, "Mod", "pregunta " * 70)]
+    u += [Utterance(3600 + 300 + 1800 + 120, "Speaker", "respuesta " * 250)]
+    u += [Utterance(3600 + 300 + 1800 + 600, "Mod", "gracias a todos " * 40)]
+    ph = C.phases(u, meta)
+    assert [p["key"] for p in ph] == ["bienvenida", "presentacion", "preguntas", "cierre"]
+    assert 25 <= next(p for p in ph if p["key"] == "presentacion")["minutes"] <= 35

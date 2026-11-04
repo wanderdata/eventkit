@@ -1,0 +1,38 @@
+# Topics for grouping the public's chat questions.
+# Each question goes to the topic whose keywords it matches most (accent- and case-insensitive,
+# whole words or phrases). Edit freely; a copy in the data folder's config/topics.yml wins.
+# "logistica" is special: questions about materials, links, dates or registration.
+
+logistica:
+  label: "Logística (materiales, enlaces, fechas)"
+  keywords: [enlace, link, links, material, materiales, grabacion, presentacion disponible, diapositivas, ppt,
+             portal, donde puedo, donde se van, acceder, descargar, registro, inscripcion, inscribirse,
+             fecha, horario, que dia, 3 de noviembre, certificado, constancia, contenidos]
+
+topics:
+  - label: "Coordinación e integración regional"
+    keywords: [regional, region, regiones, integracion, integracion regional, coordinacion, coordinar, articulacion,
+               articular, intraregional, intrarregional, cooperacion, bloque, america latina, centroamerica, minilateral]
+  - label: "Comercio, reglas de origen y T-MEC"
+    keywords: [reglas de origen, regla de origen, t-mec, tmec, usmca, tlcan, arancel, aranceles, comercio, comercial,
+               nearshoring, exportaciones, exportacion, importaciones, vcr, contenido regional, proteccionismo, hubs]
+  - label: "Empresas, pymes y proveedores"
+    keywords: [pyme, pymes, mipyme, mipymes, mype, myp, proveedores, proveeduria, empresas, empresa, encadenamiento,
+               multinacionales, mnc, maquila, ensamblaje, ensamblado, spin-offs, startups, emprendimientos, productores]
+  - label: "Tecnología, innovación y capacidades"
+    keywords: [tecnologia, tecnologica, tecnologico, transferencia, innovacion, capacidades, cti, conocimiento,
+               inteligencia artificial, robots, complejidad, economia de la complejidad, propiedad intelectual, ciencia,
+               formacion, universidades, centros de formacion, capital humano, talento]
+  - label: "Recursos naturales y medio ambiente"
+    keywords: [recursos naturales, ambiental, ambiente, biodiversidad, limites planetarios, mineria, minero, mineros,
+               minerales, litio, tierras raras, verde, transicion verde, escasez, residuos, bioeconomia, ods]
+  - label: "Políticas públicas, instituciones y gobiernos"
+    keywords: [gobierno, gobiernos, estado, politica publica, politicas publicas, gobernanza, ministerios, municipal,
+               municipales, subnacional, subnacionales, institucional, instituciones, incentivos, subsidios, fiscal,
+               politica industrial, politicas industriales, plan mexico, impacto, evaluar, medir]
+  - label: "Territorios, comunidades e inclusión"
+    keywords: [agricultura familiar, pueblos originarios, indigenas, territorios, territorio, pequenos productores,
+               comunidades, empleo, desempleo, desocupacion, inclusion, inclusivo, fronterizas, zonas fronterizas]
+  - label: "Países y casos concretos"
+    keywords: [guatemala, mexico, chile, peru, sonora, chihuahua, nuevo leon, honduras, el salvador, brasil, argentina,
+               colombia, ecuador, bolivia, paraguay, uruguay, costa rica, panama, republica dominicana]
