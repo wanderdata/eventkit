@@ -247,3 +247,29 @@ def test_uploaded_markdown_article(home, tmp_path):
     cli.rebuild()                                                               # rebuilding keeps the article
     assert (edir / "summary_es.md").read_text(encoding="utf-8").startswith("# Título")
     assert article_lang(tmp_path / "nota.md", "The session of the series and the next one") == "en"
+
+
+def test_recording_page_chat_and_late_transcript(home, tmp_path):
+    import pandas as pd
+    chat = tmp_path / "chat (1).txt"
+    chat.write_text("Los mensajes enviados por fuera del rango de grabación no son visibles.\n\n"
+                    "Ana Pérez\nSin verificar\nAyer, 9:01\nBuenos días desde Chile\n\n"
+                    "Bob Smith\nYesterday, 9:31 AM\nHow can SMEs grow?\nSecond line\n\n"
+                    "Carla\nSin verificar\nAyer, 10:10\n¿Habrá grabación?\n", encoding="utf-8")
+    assert P.detect(chat) == "chat"
+    m = P.read_chat(chat, pd.Timestamp("2026-11-03 09:00"))
+    assert [(x.time.strftime("%Y-%m-%d %H:%M"), x.name) for x in m] == [
+        ("2026-11-03 09:01", "Ana Pérez"), ("2026-11-03 09:31", "Bob Smith"), ("2026-11-03 10:10", "Carla")]
+    assert m[1].text == "How can SMEs grow?\nSecond line" and P.is_question(m[2].text)
+    # a .vtt that starts after the webinar opened is aligned on the webinar's end
+    d = make(tmp_path / "x", date="2026-05-12", seed=31)
+    for f in d.glob("*.txt"):
+        if P.detect(f) == "transcript":
+            f.unlink()
+    _, meta, _ = P.read_participants(next(f for f in d.iterdir() if P.detect(f) == "participants"))
+    span = int((meta.actual_end - meta.actual_start).total_seconds())
+    cues = "".join(f"{i}\n{i // 3600:02d}:{i % 3600 // 60:02d}:{i % 60:02d}.000 --> {i // 3600:02d}:{i % 3600 // 60:02d}:{i % 60 + 1:02d}.000\n"
+                   f"Host: palabra palabra\n\n" for i in range(0, span - 1200, 60))
+    (d / "rec.vtt").write_text("WEBVTT\n\n" + cues, encoding="utf-8")
+    eid = cli.process([d])
+    assert eid == "2026-05-12"

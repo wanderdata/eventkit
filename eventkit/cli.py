@@ -20,6 +20,7 @@ import zipfile
 from collections import defaultdict
 from pathlib import Path
 
+import pandas as pd
 import yaml
 
 from . import catalog as CAT
@@ -101,8 +102,14 @@ def process(files: list[Path], force_summary=False, move_raw=True, event_id: str
 
     people, meta, raw_rows = P.read_participants(kinds["participants"][0])
     reg = P.read_registration(kinds["registration"][0]) if kinds.get("registration") else None
-    chat = P.read_chat(kinds["chat"][0]) if kinds.get("chat") else []
+    chat = P.read_chat(kinds["chat"][0], meta.planned_start) if kinds.get("chat") else []
     utts = P.read_transcript(kinds["transcript"][0]) if kinds.get("transcript") else []
+    if utts and meta.actual_start is not None and meta.actual_end is not None:
+        # a recording's captions (e.g. .vtt) often start after the webinar opened: if the transcript is clearly
+        # shorter than the webinar, its end is aligned with the webinar's end
+        span = (meta.actual_end - meta.actual_start).total_seconds()
+        if utts[-1].t + 5 * 60 < span:
+            meta.transcript_start = meta.actual_end - pd.Timedelta(seconds=utts[-1].t + 10)
     slides = P.read_slides(kinds["slides"][0]) if kinds.get("slides") else []
     ai_sum = P.read_ai_summary(kinds["ai_summary"][0]) if kinds.get("ai_summary") else ""
     overrides = {}

@@ -598,6 +598,45 @@ def manual_article(eid, edir, lang, md, dx):
         st.rerun()
 
 
+def add_files_box(eid, edir, raw):
+    """Add a file that was missing (or replace one) without uploading the whole event again."""
+    with st.expander("Añadir o reemplazar archivos de este evento"):
+        st.caption("Por ejemplo, un chat o una transcripción que faltaba. Un archivo del mismo tipo que uno existente "
+                   "lo reemplaza; luego se recalculan las cifras del evento.")
+        ups = st.file_uploader("Archivos", accept_multiple_files=True, key=f"add_{eid}_{st.session_state.get('add_n', 0)}",
+                               type=["csv", "xlsx", "xls", "txt", "vtt", "pptx", "pdf", "yml", "yaml", "md"])
+        if not ups:
+            return
+        tmp = Path(tempfile.mkdtemp(prefix="add_"))
+        plan = []
+        for u in ups:
+            f = tmp / u.name
+            f.write_bytes(u.getbuffer())
+            plan.append((f, P.detect(f)))
+        for f, k in plan:
+            st.markdown(f"- `{f.name}` → **{KIND_LABEL.get(k or 'unknown', k)}**" +
+                        (" · reemplaza " + ", ".join(f"`{r.name}`" for r in raw if P.detect(r) == k)
+                         if k not in (None, "article") and any(P.detect(r) == k for r in raw) else ""))
+        if any(k is None for _, k in plan):
+            st.warning("Los archivos no reconocidos no se guardan. Si es un formato nuevo de Webex, avísanos para incorporarlo.")
+        good = [(f, k) for f, k in plan if k]
+        if good and st.button("Añadir y recalcular", type="primary", key=f"addgo_{eid}"):
+            with st.spinner("Recalculando el evento…"):
+                for f, k in good:
+                    if k == "article":
+                        SUM.import_article(edir, f)
+                        continue
+                    for r in raw:
+                        if P.detect(r) == k:
+                            r.unlink()
+                    shutil.copy2(f, edir / "raw" / f.name)
+                cli.process([edir / "raw"], move_raw=False, event_id=eid)
+                save(stg, f"Evento {eid}: archivos añadidos ({', '.join(f.name for f, _ in good)})")
+            st.session_state["add_n"] = st.session_state.get("add_n", 0) + 1
+            st.success("Listo.")
+            st.rerun()
+
+
 def page_event():
     if not events():
         st.info("Todavía no hay eventos. Usa «Subir evento».")
@@ -672,6 +711,7 @@ def page_event():
             c3.download_button("Descargar", f.read_bytes(), file_name=f.name, key=f"raw_{f.name}")
     else:
         st.caption("Sin archivos guardados.")
+    add_files_box(eid, edir, raw)
 
     with st.expander("Eliminar este evento"):
         st.write("Borra el evento, sus archivos y sus cifras de la serie. Queda en el historial del repositorio de datos.")

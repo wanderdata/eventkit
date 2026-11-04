@@ -36,9 +36,9 @@ def phases(utts: list[Utterance], meta: EventMeta) -> list[dict]:
     The main speaker is whoever talks most after the scheduled start; the presentation is their
     longest stretch (short interruptions under a minute are absorbed); Q&A runs until the main
     speaker's last substantial answer; what follows is the closing."""
-    if not utts or meta.planned_start is None or meta.actual_start is None:
+    if not utts or meta.planned_start is None or meta.t0 is None:
         return []
-    t0 = (meta.planned_start - meta.actual_start).total_seconds() - 5 * 60
+    t0 = (meta.planned_start - meta.t0).total_seconds() - 5 * 60
     content = [u for u in utts if u.t >= t0]
     if len(content) < 5:
         return []
@@ -66,7 +66,7 @@ def phases(utts: list[Utterance], meta: EventMeta) -> list[dict]:
     qa_end = later_main[-1]["end"] if later_main else pres["end"]
     end = content[-1].t + 30
     if meta.actual_end is not None:
-        end = min(end, (meta.actual_end - meta.actual_start).total_seconds())
+        end = min(end, (meta.actual_end - meta.t0).total_seconds())
     raw = [("bienvenida", first["start"], pres["start"]),
            ("presentacion", pres["start"], pres["end"]),
            ("preguntas", pres["end"], qa_end),
@@ -79,7 +79,7 @@ def phases(utts: list[Utterance], meta: EventMeta) -> list[dict]:
         for u in content:
             if a <= u.t < b:
                 sp[u.speaker] = sp.get(u.speaker, 0) + len(u.text.split())
-        clock = lambda s: (meta.actual_start + pd.Timedelta(seconds=s))
+        clock = lambda s: (meta.t0 + pd.Timedelta(seconds=s))
         out.append({"key": key, "label": PHASE_LABELS[key],
                     "start": clock(a).strftime("%H:%M"), "end": clock(b).strftime("%H:%M"),
                     "start_m": round((clock(a) - meta.planned_start).total_seconds() / 60, 1),
@@ -153,11 +153,21 @@ _STOP = set("""a al algo algunas algunos ante antes como con contra cual cuales 
 ellos en entre era es esa esas ese eso esos esta estas este esto estos fue ha hay la las le les lo los mas me mi mis muy
 nos o otra otras otro otros para pero por porque que se sea segun ser si sin sobre su sus tambien tan tanto te tiene
 tienen todo todos tu un una uno unos usted y ya podemos puede pueden podria deberia debe hacer cree considera como
-gracias muchas excelente buenos dias hola saludos pregunta consulta dr profesor prof estimado felicitaciones senor""".split())
+gracias muchas excelente buenos dias hola saludos pregunta consulta dr profesor prof estimado felicitaciones senor
+about above after again against because before being below between could doing during further having other their
+there these those through under until where which while would should might thank thanks question professor
+think given countries country""".split())
 
 
 def _terms(text: str) -> set[str]:
     return {w for w in re.findall(r"[a-z0-9]+", N.norm_text(text)) if len(w) >= 5 and w not in _STOP}
+
+
+def _lang(text: str) -> str:
+    w = re.findall(r"[a-záéíóúñ]+", text.lower())
+    en = sum(x in ("the", "of", "and", "to", "that", "how", "what", "is", "are", "which", "with", "can") for x in w)
+    es = sum(x in ("el", "la", "de", "que", "los", "las", "del", "en", "cómo", "qué", "para", "con", "una") for x in w)
+    return "en" if en > es else "es"
 
 
 def _claude_topics(questions: list[dict]) -> dict | None:
@@ -193,6 +203,7 @@ def question_topics(chat: list[ChatMsg], staff: set[str], qa_text: str = "") -> 
     log_label = cfg.get("logistica", {}).get("label", "Logística")
     by_claude = _claude_topics(qs)
     qa_terms = _terms(qa_text)
+    qa_lang = _lang(qa_text)
     for q in qs:
         tn = N.norm_text(q["text"])
         if by_claude and q["id"] in by_claude:
@@ -204,8 +215,8 @@ def question_topics(chat: list[ChatMsg], staff: set[str], qa_text: str = "") -> 
             best = max(scores) if scores else (0, 0, "")
             q["topic"] = best[2] if best[0] > 0 else "Otros temas"
         terms = _terms(q["text"])
-        english = len(re.findall(r"\b(the|of|and|that|what|how|is|to)\b", q["text"].lower())) >= 3
-        q["addressed"] = (None if q["topic"] == log_label or not qa_terms or not terms or english
+        # word overlap only means something when the question and the talk are in the same language
+        q["addressed"] = (None if q["topic"] == log_label or not qa_terms or not terms or _lang(q["text"]) != qa_lang
                           else len(terms & qa_terms) / len(terms) >= 0.40)
     groups = {}
     for q in qs:

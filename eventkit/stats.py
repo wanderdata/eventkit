@@ -7,7 +7,7 @@ from . import normalize as N
 from .parsers import ChatMsg, EventMeta, is_question
 
 # Bump when event_stats() gains or changes fields; the app then recomputes older events.
-STATS_VERSION = 3
+STATS_VERSION = 4
 
 
 def enrich(people: pd.DataFrame, reg: pd.DataFrame | None) -> pd.DataFrame:

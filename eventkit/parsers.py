@@ -131,6 +131,8 @@ def detect(path: Path) -> str | None:
             return "ai_summary"
         if re.search(r"^(-+>\s*)?\d{4}-\d{2}-\d{2} \d{2}:\d{2} : ", head, re.M):
             return "chat"
+        if len(BLOCK_TIME.findall(head)) >= 2:
+            return "chat"
         if re.search(r"^\d{1,2}:\d{2}(:\d{2})? : ", head, re.M):
             return "transcript"
     return None
@@ -147,6 +149,11 @@ class EventMeta:
     planned_start: pd.Timestamp | None = None
     actual_start: pd.Timestamp | None = None
     actual_end: pd.Timestamp | None = None
+    transcript_start: pd.Timestamp | None = None    # clock time of second 0 of the transcript
+
+    @property
+    def t0(self):
+        return self.transcript_start if self.transcript_start is not None else self.actual_start
 
 
 def read_participants(path: Path) -> tuple[pd.DataFrame, EventMeta]:
@@ -341,9 +348,52 @@ class ChatMsg:
     links: list = field(default_factory=list)
 
 
-def read_chat(path: Path) -> list[ChatMsg]:
+# Chat copied from the Webex recording page: blocks of
+#   Name / [Sin verificar] / "Ayer, 9:01" (or Hoy, Yesterday, Today, a weekday or a date) / message lines
+_DAYWORD = (r"(?:ayer|hoy|anteayer|yesterday|today|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo|"
+            r"monday|tuesday|wednesday|thursday|friday|saturday|sunday|"
+            r"\d{1,2}[ /.-](?:\d{1,2}|[a-zé]{3,10}\.?)(?:[ /.-]\d{2,4})?|[a-z]{3,10}\.? \d{1,2}(?:, \d{4})?)")
+BLOCK_TIME = re.compile(rf"^\s*(?:{_DAYWORD},?\s+)?(\d{{1,2}}):(\d{{2}})(?::\d{{2}})?\s*([ap]\.?\s?m\.?)?\s*$",
+                        re.I | re.M)
+_STATUS = {"sin verificar", "verificado", "unverified", "verified", "invitado", "guest", "externo", "external"}
+
+
+def _read_block_chat(lines: list[str], day: pd.Timestamp | None) -> list[ChatMsg]:
+    day = (day.normalize() if day is not None else pd.Timestamp.today().normalize())
+    idx = [i for i, l in enumerate(lines) if BLOCK_TIME.match(l) and i > 0]
+    heads = []                                   # (time line, first line of the block = the name)
+    for i in idx:
+        j = i - 1
+        if norm_text(lines[j]) in _STATUS and j > 0:
+            j -= 1
+        if lines[j].strip():
+            heads.append((i, j))
     out = []
-    for line in path.read_text(encoding="utf-8-sig", errors="replace").splitlines():
+    for k, (i, j) in enumerate(heads):
+        m = BLOCK_TIME.match(lines[i])
+        h, mi, ap = int(m.group(1)), int(m.group(2)), (m.group(3) or "").lower().replace(".", "").replace(" ", "")
+        if ap == "pm" and h < 12:
+            h += 12
+        if ap == "am" and h == 12:
+            h = 0
+        end = heads[k + 1][1] if k + 1 < len(heads) else len(lines)
+        text = "\n".join(l.rstrip() for l in lines[i + 1:end]).strip()
+        if not text:
+            continue
+        links = re.findall(r"https?://\S+", text)
+        out.append(ChatMsg(day + pd.Timedelta(hours=h, minutes=mi), lines[j].strip(), text, False, links))
+    return out
+
+
+def read_chat(path: Path, day: pd.Timestamp | None = None) -> list[ChatMsg]:
+    """Webex chat export ("2026-10-20 12:05 : Name : text"), or the chat copied from the recording page
+    (blocks with relative days like "Ayer, 9:01": the date comes from `day`, the event date)."""
+    raw_text = path.read_text(encoding="utf-8-sig", errors="replace")
+    if not any(
+            CHAT_RE.match(l.strip()) for l in raw_text.splitlines()[:200]):
+        return _read_block_chat(raw_text.splitlines(), day)
+    out = []
+    for line in raw_text.splitlines():
         m = CHAT_RE.match(line.strip())
         if m:
             raw = m.group(4)

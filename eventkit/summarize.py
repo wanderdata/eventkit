@@ -41,9 +41,9 @@ def series_config() -> dict:
 
 def trim_transcript(utts: list[Utterance], meta, margin_min=10) -> list[Utterance]:
     """Drop the pre-show (tech checks) using the gap between webinar opening and planned start."""
-    if not utts or meta.planned_start is None or meta.actual_start is None:
+    if not utts or meta.planned_start is None or meta.t0 is None:
         return utts
-    offset = (meta.planned_start - meta.actual_start).total_seconds() - margin_min * 60
+    offset = (meta.planned_start - meta.t0).total_seconds() - margin_min * 60
     kept = [u for u in utts if u.t >= offset]
     return kept or utts
 
