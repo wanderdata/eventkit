@@ -122,6 +122,8 @@ def detect(path: Path) -> str | None:
         return None
     if suf == ".vtt":
         return "transcript"
+    if suf in (".md", ".markdown"):
+        return "article"
     if suf == ".txt":
         head = path.read_text(encoding="utf-8-sig", errors="replace")[:4000]
         first = norm_text(head.splitlines()[0] if head.strip() else "")

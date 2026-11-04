@@ -132,7 +132,7 @@ def process(files: list[Path], force_summary=False, move_raw=True, event_id: str
 
     # keep the raw exports with the event (rebuilds work from here)
     for k, fs in kinds.items():
-        if k == "unknown":
+        if k in ("unknown", "article"):     # an uploaded article is imported below, not kept as raw input
             continue
         for f in fs:
             dest = edir / "raw" / f.name
@@ -154,6 +154,8 @@ def process(files: list[Path], force_summary=False, move_raw=True, event_id: str
     for pt, f in zip(s["timeline"], s["flow"]):
         pt["phase"] = f["phase"]
 
+    for f in kinds.get("article", []):
+        print(f"  article ({SUM.import_article(edir, f)}) ← {f.name}")
     ctx = SUM.make_context(meta, utts, chat, slides, ai_sum, p, overrides, series=ser, event_type=event_type)
     status = SUM.write_summaries(edir, ctx, s, force=force_summary)
     print(f"  summaries: {status}")

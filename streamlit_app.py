@@ -112,6 +112,7 @@ KIND_LABEL = {
     "ai_summary": "Resumen automático de Webex",
     "slides": "Presentación",
     "event_yml": "Datos manuales (event.yml)",
+    "article": "Nota ya redactada (.md)",
     "docx": "Documento Word (no se usa)",
     "unknown": "No reconocido (se ignora)",
 }
@@ -324,10 +325,11 @@ def page_upload():
             "- **Informe de participantes** (.csv/.xlsx) — *obligatorio*\n"
             "- **Informe de inscripción** de Webex o exportación de Microsoft Forms (.csv/.xlsx)\n"
             "- **Transcripción** (.txt o .vtt) · **Chat** (.txt) · **Resumen de la reunión** (.txt)\n"
-            "- **Presentación** del ponente (.pptx o .pdf)")
+            "- **Presentación** del ponente (.pptx o .pdf)\n"
+            "- *Opcional:* la **nota ya redactada** (.md), en español y/o inglés (por ejemplo `nota_es.md`, `nota_en.md`)")
 
     files = st.file_uploader("Archivos del evento", accept_multiple_files=True,
-                             type=["csv", "xlsx", "xls", "txt", "vtt", "pptx", "pdf", "zip", "yml", "yaml", "docx"],
+                             type=["csv", "xlsx", "xls", "txt", "vtt", "pptx", "pdf", "zip", "yml", "yaml", "docx", "md"],
                              key=f"up_{st.session_state.get('up_n', 0)}")
     if not files:
         return
@@ -339,12 +341,12 @@ def page_upload():
 
     import html as _h
     rows = []
-    for k in EXPECTED + ["event_yml", "docx", "unknown"]:
+    for k in EXPECTED + ["article", "event_yml", "docx", "unknown"]:
         names = ", ".join(p.name for p in found.get(k, []))
         if k not in EXPECTED and not names:
             continue
         if names:
-            mark, cls = ("✓", "ok") if k in EXPECTED or k == "event_yml" else ("·", "opt")
+            mark, cls = ("✓", "ok") if k in EXPECTED or k in ("event_yml", "article") else ("·", "opt")
         else:
             mark, cls = ("✗", "no") if k in REQUIRED else ("–", "opt")
         detail = names or ("falta (obligatorio)" if k in REQUIRED else "no incluido")
@@ -566,6 +568,20 @@ def manual_article(eid, edir, lang, md, dx):
     if ev:
         with st.expander("Párrafo de cifras de participación (para copiar en la nota)"):
             st.code(SUM.stats_paragraph(ev, lang), language=None, wrap_lines=True)
+    up = st.file_uploader("Sube la nota (.md)" if lang == "es" else "Upload the article (.md)", type=["md", "markdown", "txt"],
+                          key=f"upmd_{eid}_{lang}", help="O pega el texto en el recuadro de abajo")
+    if up is not None and st.button("Usar este archivo", type="primary", key=f"usemd_{eid}_{lang}"):
+        md.write_text(up.getvalue().decode("utf-8-sig").strip() + "\n", encoding="utf-8")
+        tmp = Path(tempfile.mkdtemp()) / (f"nota_{lang}.md")
+        tmp.write_text(md.read_text(encoding="utf-8"), encoding="utf-8")
+        SUM.import_article(edir, tmp)                      # adds the participation paragraph if missing
+        try:
+            cli.process([edir / "raw"], move_raw=False, event_id=eid)
+        except Exception:
+            md_to_docx(md, dx)
+        save(stg, f"Evento {eid}: nota ({lang}) subida")
+        st.success("Nota guardada.")
+        st.rerun()
     title = "Pega la nota final" if lang == "es" else "Paste the final article"
     text = st.text_area(f"{title} (la primera línea con `# ` se usa como título)", height=380,
                         key=f"new_{eid}_{lang}", placeholder="# Título de la nota\n\n*Bajada…*\n\nPrimer párrafo…")

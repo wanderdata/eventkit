@@ -226,3 +226,24 @@ def test_vtt_transcript(tmp_path, cue):
     u = P.read_transcript(f)
     assert [(x.t, x.speaker, x.text) for x in u] == [(1, "Ana Pérez", "Hola a todos, bienvenidos."),
                                                     (70, "Luis Soto", "Gracias, Ana.")]
+
+
+def test_uploaded_markdown_article(home, tmp_path):
+    from eventkit.summarize import article_lang
+    d = make(tmp_path / "x", date="2026-05-12", seed=21)
+    (d / "nota_es.md").write_text("# Título\n\n*Bajada.*\n\nTexto de la nota.\n\nLa próxima sesión será en diciembre.\n", encoding="utf-8")
+    (d / "Summary-EN.md").write_text("# Title\n\nText of the article.\n\n<!-- stats:start (x) -->\nold\n<!-- stats:end -->\n",
+                                     encoding="utf-8")
+    assert P.detect(d / "nota_es.md") == "article"
+    eid = cli.process([d])
+    edir = home / "events" / eid
+    es = (edir / "summary_es.md").read_text(encoding="utf-8")
+    en = (edir / "summary_en.md").read_text(encoding="utf-8")
+    assert es.startswith("# Título") and "participantes" in es.split("stats:start")[1]
+    assert es.index("stats:end") < es.index("La próxima sesión")               # paragraph before the next-session line
+    assert "old" not in en and "participants" in en
+    assert not list((edir / "raw").glob("*.md"))                                # not kept as raw input
+    assert (edir / "summary_es.docx").exists()
+    cli.rebuild()                                                               # rebuilding keeps the article
+    assert (edir / "summary_es.md").read_text(encoding="utf-8").startswith("# Título")
+    assert article_lang(tmp_path / "nota.md", "The session of the series and the next one") == "en"

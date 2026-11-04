@@ -332,6 +332,30 @@ def make_context(meta, utts, chat, slides, ai_summary, people, overrides, series
     }
 
 
+def article_lang(path: Path, text: str) -> str:
+    """'es' or 'en' for an uploaded article: from the file name (…_es.md, …-en.md), else from the words."""
+    m = re.search(r"(?:^|[_\-. ])(es|en|esp|eng|spa)(?:[_\-. ]|$)", path.stem.lower())
+    if m:
+        return "en" if m.group(1) in ("en", "eng") else "es"
+    w = re.findall(r"[a-záéíóúñ]+", text.lower())
+    es = sum(x in ("de", "la", "que", "el", "los", "las", "del", "por", "una", "para") for x in w)
+    en = sum(x in ("the", "of", "and", "to", "that", "for", "with", "by", "was", "which") for x in w)
+    return "es" if es >= en else "en"
+
+
+def import_article(event_dir: Path, path: Path) -> str:
+    """Use an uploaded .md as the event's article; the participation paragraph is added (and kept current)."""
+    text = path.read_text(encoding="utf-8-sig").strip() + "\n"
+    lang = article_lang(path, text)
+    if "<!-- stats:start" not in text:
+        block = ("<!-- stats:start (auto-generated from the participation data; edits here are overwritten) -->\n"
+                 "…\n<!-- stats:end -->\n")
+        nxt = re.search(r"^(La próxima sesión|El próximo evento|The next session|The next event)", text, re.M)
+        text = (text[:nxt.start()] + block + "\n" + text[nxt.start():]) if nxt else (text + "\n" + block)
+    (event_dir / f"summary_{lang}.md").write_text(text, encoding="utf-8")
+    return lang
+
+
 def write_summaries(event_dir: Path, ctx: dict, stats: dict, force=False) -> dict:
     """Generate (or reuse) summary_es.md / summary_en.md and review.md in event_dir."""
     es_md, en_md = event_dir / "summary_es.md", event_dir / "summary_en.md"
